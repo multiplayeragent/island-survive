@@ -1,0 +1,22 @@
+{
+  "name": "Island Survive",
+  "genre": "sandbox",
+  "dim": "3D",
+  "mode": "Co-op",
+  "players": "1–6",
+  "hook": "Chop, build a fire, and last the night together.",
+  "how": "By day you chop trees, mine rocks and craft an axe, a pickaxe and a spear. At night crabs crawl out of the sea, so keep the campfire fed with wood and fence the camp in: firelight burns them.",
+  "controls": "WASD and mouse, hold click to chop, mine, fight and feed the fire, 1 to 5 to craft, or the thumb stick and USE button",
+  "uses": [
+    ["World memory", "The camp is remembered by the players who built it: whoever comes back first brings back its fires, fences and day count."],
+    ["Host-run rules", "The host's browser runs the day and night, every crab and every fallen tree; if it leaves, the next player takes over."],
+    ["Leaderboard", "The most nights in a row each player lasted without being knocked out."],
+    ["Bots", "Bot islanders chop, mine, build fences and fight beside you until enough people join."],
+    ["Live sync", "Every islander, swing, crab and campfire shows up for everyone at once."]
+  ],
+  "ideas": [
+    "Add berry bushes that heal you when you eat them",
+    "Add a giant boss crab every fifth night",
+    "Let players build a raft and sail to a second island"
+  ]
+}

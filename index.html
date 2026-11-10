@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Island Survive</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #12203d; }
+  body { font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; touch-action: none; }
+  .hud { position: fixed; pointer-events: none; text-shadow: 0 2px 4px #000c; }
+  #clock { top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; font-weight: 800; font-size: 21px; line-height: 1.15; white-space: nowrap; }
+  #clock small { display: block; font-size: 13px; font-weight: 600; opacity: .85; }
+  #hearts { top: calc(max(10px, env(safe-area-inset-top)) + 46px); left: 50%; transform: translateX(-50%); font-size: 20px; letter-spacing: 3px; white-space: nowrap; }
+  #hearts b { color: #ff5d6c; } #hearts i { color: #ffffff44; font-style: normal; }
+  #bag { top: max(12px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); font-weight: 800; font-size: 17px; line-height: 1.5; }
+  #bag small { display: block; font-size: 12px; font-weight: 600; opacity: .85; }
+  #team { top: max(12px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); font-size: 12px; text-align: right; line-height: 1.5; }
+  #team .mine { color: #ffd166; font-weight: 700; } #team .ko { opacity: .5; }
+  #team i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 6px; }
+  #net { bottom: max(10px, env(safe-area-inset-bottom)); left: max(14px, env(safe-area-inset-left)); font-size: 12px; opacity: .8; }
+  #saved { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 18px); left: max(14px, env(safe-area-inset-left)); font-size: 12px; opacity: 0; transition: opacity .5s; }
+  #saved.on { opacity: .85; }
+  #hint { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px); left: 50%; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); box-sizing: border-box; text-align: center; font-size: 16px; font-weight: 700; padding: 10px 14px; border-radius: 14px; background: #0b142aaa; opacity: 0; transition: opacity .6s; }
+  #toast { top: 17%; left: 16px; right: 16px; text-align: center; font-size: 19px; font-weight: 800; color: #ffd166; opacity: 0; transition: opacity .4s; }
+  #hint.on, #toast.on { opacity: 1; }
+  #hurt { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 140px #ff1f3d; opacity: 0; transition: opacity .3s; }
+  #craft { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; gap: 6px; padding: 5px; border-radius: 14px; background: #0b142a99; }
+  #craft button { width: 66px; min-height: 52px; padding: 4px 2px; border: 0; border-radius: 10px; background: #ffffff18; color: #fff; font: 800 12px/1.2 system-ui, sans-serif; cursor: pointer; touch-action: none; opacity: .55; }
+  #craft button small { display: block; font-size: 11px; font-weight: 600; opacity: .9; }
+  #craft button.can { opacity: 1; background: #f4a26150; box-shadow: inset 0 0 0 2px #ffc07a; }
+  #craft button.have { opacity: 1; background: #4cc38a40; }
+  #use { display: none; position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(26px, env(safe-area-inset-bottom)); width: 96px; height: 96px; border-radius: 50%; border: 2px solid #ffffffaa; background: #f4a261aa; color: #fff; font: 900 17px system-ui, sans-serif; text-shadow: 0 1px 2px #0008; touch-action: none; }
+  #use:active { filter: brightness(1.3); }
+  .stick { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid #ffffff55; background: #ffffff12; pointer-events: none; }
+  .stick i { position: absolute; left: 34px; top: 34px; width: 52px; height: 52px; border-radius: 50%; background: #ffffff70; }
+  .stick[hidden], #ko[hidden] { display: none; }
+  .touch #use { display: block; }
+  .touch #hint { bottom: auto; top: calc(max(8px, env(safe-area-inset-top)) + 146px); }
+  .touch #craft { top: calc(max(8px, env(safe-area-inset-top)) + 78px); bottom: auto; }
+  .touch #net { left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  .touch #saved { left: 50%; transform: translateX(-50%); }
+  #ko { position: fixed; inset: 0; display: grid; place-items: center; background: #050a14b0; }
+  .card { box-sizing: border-box; width: min(380px, calc(100vw - 32px)); max-height: 86vh; overflow: auto; padding: 20px; border-radius: 16px; background: #16213e; border: 1px solid #ffffff2a; text-align: center; }
+  .card h2 { margin: 0; font-size: 26px; color: #ff8a65; } .card h3 { margin: 14px 0 4px; font-size: 13px; color: #ffd166; text-align: left; }
+  .card ol { margin: 0; padding-left: 24px; font-size: 14px; text-align: left; }
+  .card li span { float: right; font-variant-numeric: tabular-nums; }
+  .card p { margin: 8px 0 0; font-size: 14px; opacity: .85; }
+  button.go { width: 100%; min-height: 48px; margin-top: 16px; border: 0; border-radius: 12px; background: #f4a261; color: #2b1300; font: 800 17px system-ui, sans-serif; cursor: pointer; }
+  @media (max-width: 640px) { #team { display: none; } #clock { font-size: 18px; } }
+  .attract .hud, .attract #craft, .attract #use, .attract #ko { display: none !important; }
+</style>
+<script src="https://cdn.multiplayeragent.com/sdk/mp.global.js"></script>
+<script type="importmap">{ "imports": { "three": "./libs/three.module.min.js" } }</script>
+</head>
+<body>
+<div class="hud" id="clock"></div>
+<div class="hud" id="hearts"></div>
+<div class="hud" id="bag"></div>
+<div class="hud" id="team"></div>
+<div class="hud" id="net">Connecting…</div>
+<div class="hud" id="saved">✓ Camp saved</div>
+<div class="hud" id="hint"></div>
+<div class="hud" id="toast"></div>
+<div id="hurt"></div>
+<div id="craft"></div>
+<button id="use">USE</button>
+<div class="stick" id="stick" hidden><i></i></div>
+<div id="ko" hidden><div class="card">
+  <h2>Knocked out</h2><p id="koSub"></p>
+  <h3>Longest night streaks</h3><ol id="board"><li>Loading…</li></ol>
+  <button class="go" id="wake">Wake up by the fire</button><p id="koNext"></p>
+</div></div>
+<script type="module">
+/* ═══ ISLAND SURVIVE · a Multiplayer Agent starter ═══════════════════════════════════════
+ * Chop, craft, keep the fire burning and survive the night. Co-op, 1–6 players; bots help.
+ *
+ * WHERE THINGS ARE (search for the "── " headers):
+ *   CONFIG ........ the day/night cycle, trees and rocks, crabs, fire, recipes, bots
+ *   CONNECTION .... MP_CONNECT, joining, the offline room, who is host
+ *   WORLD MEMORY .. how the camp survives the room emptying (same code as voxel-builders)
+ *   ISLAND ........ where the trees and rocks are, the ground, the sea, drawing trees/rocks
+ *   CAMP .......... campfires and fences: how they are packed into state, and drawn
+ *   SURVIVORS ..... the survivor model, tools, name tags
+ *   CRABS ......... how night crabs are packed into state, and how they are drawn (instanced)
+ *   EFFECTS ....... particles, sounds, the sky (day, dusk, night, dawn)
+ *   ISLAND (HOST) . the clock, crabs' brains, bites, bots, every intent. Only the host runs it.
+ *   ME ............ walking, chopping, crafting, building, getting knocked out
+ *   HUD ........... clock, hearts, backpack, recipes, the knocked-out card, leaderboard
+ *   INPUT ......... keyboard + mouse, thumb stick and USE button on touch
+ *
+ * HOW THE MULTIPLAYER WORKS (a relay room: no server code, the HOST's browser runs the island):
+ *   - Each player writes its OWN entity: `p` (one JSON field: x, z, facing, hearts, knocked
+ *     out, swing counter, tool) about 10 times a second, `bag` (wood, stone, tools) when it
+ *     changes, `hb` (heartbeat) once a second, `n`/`c` (name, color) once, `st` (night streak).
+ *     Each player owns its own backpack and hearts.
+ *   - The HOST is the lowest sessionId among live players (heartbeat seen in the last 3s),
+ *     worked out every frame. Only the host writes the shared fields:
+ *       `sky`   {v, day, phase: day|night, endsAt}: the clock, written only on a change
+ *       `nodes` how many swings each tree and rock has left, and when fallen ones regrow
+ *       `camp`  every campfire (x, z, when its fuel runs out) and fence (x, z, turn, health)
+ *       `rev`   how many things PEOPLE have built (world memory compares it)
+ *       `crabs` every night crab, 10 times a second; `bots` the AI survivors, 10 times a second
+ *     A new host adopts all of it from state and carries on: same night, same crabs.
+ *   - Everyone else sends intents: "hit" {i} (a swing at tree/rock i: you add the wood or
+ *     stone to your own bag, the host takes a swing off the node), "hitc" {i, d, x, z} (a
+ *     swing at crab i), "fuel" {x, z} (a log into the fire there) and "build" {k, x, z, r}
+ *     (a fence or campfire). The host checks and writes the result; its own swings apply directly.
+ *   - Crabs bite by event: the host sends "bite" {to, d} and only the bitten player takes the
+ *     hearts off. The host bites bots directly.
+ *   - The camp and the day count outlive the room through WORLD MEMORY (see that section).
+ *   - ?attract plays offline with bots only (the preview video is recorded from it).
+ *   - Leaderboard "night-streak": the most nights in a row you lasted without being knocked out.
+ */
+import * as THREE from "three";
+
+// ── CONFIG ──────────────────────────────────────────────────────────────────────────
+const CONFIG = {
+  island: 31,            // radius of the grass; the beach runs on to `beach`
+  beach: 35,
+  trees: 58, rocks: 22,  // resource spots on the island (the same spots for everyone)
+  treeHits: 3,           // swings before a tree falls
+  rockHits: 3,           // swings before a rock is mined out
+  regrowMs: 45000,       // a fallen tree or mined rock comes back after this long
+  firstDayMs: 50000,     // the first day on a new island
+  dayMs: 70000,          // later days
+  nightMs: 50000,        // every night
+  duskMs: 7000,          // dusk and dawn fade over this long
+  speed: 6,              // walking speed, units/s
+  reach: 1.7,            // how far a swing reaches (the spear adds `spearReach`)
+  spearReach: 0.8,
+  swingMs: 420,          // ms between swings while Use is held
+  hp: 5,                 // hearts
+  healMs: 4000,          // ms per heart while you stand in firelight
+  wakeMs: 12000,         // knocked out this long, you wake up by the fire on your own
+  fuelPerWood: 14,       // seconds of fire one log adds
+  maxFuel: 100,          // most seconds of fuel a fire holds
+  lightMin: 3.5,         // firelight radius when the fire is nearly out ...
+  lightMax: 7.5,         // ... and when it has 60s of fuel or more
+  lightSlow: 0.55,       // crabs crawl this much slower in firelight ...
+  burnMs: 1500,          // ... and lose 1 health this often
+  crabs: 5,              // night crabs on night 1 ...
+  crabsGrow: 3,          // ... and this many more every night
+  maxCrabs: 26,          // most crabs on the island at once
+  crabSpeed: 2.6,        // units/s
+  crabHp: 3,             // health on night 1, +1 every 3 nights
+  crabSize: 1.3,         // how big crabs are drawn
+  crabBite: 1,           // hearts one bite takes
+  biteEvery: 1.5,        // seconds between one crab's bites
+  aggro: 26,             // crabs hunt survivors closer than this, else head for the fire
+  spawnEvery: 1.6,       // seconds between crabs crawling out of the sea
+  spawnRadius: 36,       // where they crawl out
+  seats: 4,              // bots fill the island up to this many survivors
+  botFight: 9,           // at night bots go after crabs closer than this (6 by day)
+  botWalls: 12,          // bots stop building fences once the camp has this many
+  maxWalls: 60,          // most fences in the camp
+  maxFires: 6,           // most campfires
+  wallHp: 4,             // bites a fence takes before it breaks
+  costs: { axe: { w: 3 }, pick: { w: 2, s: 2 }, spear: { w: 2, s: 3 }, wall: { w: 2 }, fire: { w: 3, s: 4 } },
+  saveNs: "island-camp", // player-save namespace for world memory
+  saveEvery: 10000,      // ms between world-memory saves
+  board: "night-streak", // leaderboard name
+};
+// What the recipe bar offers. Tools go in your backpack; fences and campfires go into the camp.
+const CRAFTS = [
+  { k: "axe", name: "Axe", tool: true },
+  { k: "pick", name: "Pickaxe", tool: true },
+  { k: "spear", name: "Spear", tool: true },
+  { k: "wall", name: "Fence" },
+  { k: "fire", name: "Campfire" },
+];
+const COLORS = ["#ff7b54", "#4ab3ff", "#ffd23f", "#7ee081", "#c792ff", "#ff6fae", "#39d5c9", "#f2f2f2"];
+const BOT_NAMES = ["Coco", "Kai", "Mango", "Reef", "Sandy", "Pebble"];
+
+// ── CONNECTION ──────────────────────────────────────────────────────────────────────
+// The builder fills these in for this game. Downloaded from GitHub? Put your own pk_ key here.
+const MP_CONNECT = {
+  key: 'pk_REPLACE_ME',
+  room: 'island-survive',
+  endpoint: 'wss://live.multiplayeragent.com',
+  apiUrl: 'https://api.multiplayeragent.com',
+};
+const ATTRACT = new URLSearchParams(location.search).has("attract");
+
+/** Same shape as the SDK client, kept in this tab: offline play and ?attract. */
+function localRoom() {
+  const id = "local", state = { entities: { players: { [id]: {} } }, shared: {} }, subs = [];
+  let queued = false;
+  const emit = () => { if (!queued) { queued = true; queueMicrotask(() => { queued = false; subs.forEach((f) => f(state)); }); } };
+  const put = (o, k, v) => { if (typeof k === "object") Object.assign(o, k); else o[k] = v; emit(); };
+  return {
+    sessionId: id, state, offline: true,
+    me: { set: (k, v) => put(state.entities.players[id], k, v) },
+    setShared: (k, v) => put(state.shared, k, v),
+    onState: (f) => { subs.push(f); f(state); }, onJoin() {}, onLeave() {}, on() {}, send() {},
+    onDisconnect() {}, onReconnect() {}, leave: async () => {},
+  };
+}
+async function connect() {
+  if (ATTRACT || typeof MP === "undefined") return localRoom();
+  try {
+    const mp = await Promise.race([MP.join({ ...MP_CONNECT }), new Promise((_, no) => setTimeout(() => no(new Error("timed out")), 10000))]);
+    window.mp = mp; // the builder calls window.mp.leave() when the page closes
+    return mp;
+  } catch (e) {
+    console.warn("Playing offline:", e && e.message);
+    return localRoom();
+  }
+}
+const parse = (v, fb) => { if (typeof v !== "string") return fb; try { return JSON.parse(v); } catch { return fb; } };
+const parsed = new Map();
+/** A JSON value from state, parsed (and decoded) once per change. Read-only: never mutate what this returns. */
+function parseOnce(key, raw, decode) {
+  const c = parsed.get(key);
+  if (c && c.raw === raw) return c.v;
+  const v = decode(parse(raw, null)); parsed.set(key, { raw, v }); return v;
+}
+let net = null, S = { entities: { players: {} }, shared: {} };
+let player = null; // MP.auth client: world-memory saves + the leaderboard (null offline)
+const seenHb = new Map();
+/** Players whose heartbeat moved in the last 3s (plus us), sorted by sessionId. */
+function livePlayers() {
+  const now = performance.now(), out = [];
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    const s = seenHb.get(id);
+    if (!s || s.hb !== p.hb) seenHb.set(id, { hb: p.hb, at: now });
+    if (id === net.sessionId || now - seenHb.get(id).at < 3000) out.push(id);
+  }
+  return out.sort();
+}
+const isHost = () => livePlayers()[0] === net.sessionId;
+
+// ── WORLD MEMORY ────────────────────────────────────────────────────────────────────
+// A relay room forgets everything when its last player leaves, so the PLAYERS remember the camp:
+//   1. Every CONFIG.saveEvery ms and when the page closes, each player saves a copy of the camp
+//      (fires, fences, the day count) with its `rev` (how many things PEOPLE built; bots don't
+//      count, so a fresh island with bot fences never beats a saved one) to its player save
+//      (player.data, namespace CONFIG.saveNs) and to this browser (localStorage). A copy with a
+//      higher rev than the live camp is never overwritten: it is kept and offered.
+//   2. The first player into an empty room becomes host and loads its copy into shared.
+//   3. A player who joins holding a copy with a HIGHER rev than the live camp offers it: it
+//      writes the copy into its own entity (`wmh` header, `wm0`, `wm1`… chunks under 2048
+//      characters) and the host adopts it. The copy with more building in it wins.
+// The game supplies worldSnapshot(), liveRev() (-1 = no camp yet) and loadWorld(world, rev).
+const memory = { saved: null, ready: false, cloud: null, lastJson: "", lastSave: 0, offerRev: 0, offerN: 0 };
+const memoryKey = () => "mpa-world:" + MP_CONNECT.room + (net.offline ? ":offline" : "");
+
+/** Read my copy: this browser's and my cloud save, whichever has the higher rev. */
+async function loadMemory() {
+  let best = null;
+  try { best = JSON.parse(localStorage.getItem(memoryKey()) || "null"); } catch {}
+  if (player) {
+    try {
+      const doc = (await player.data.get(CONFIG.saveNs)).data;
+      if (doc && doc.room === MP_CONNECT.room && doc.world && (!best || doc.rev > best.rev)) best = doc;
+      memory.cloud = true;
+    } catch (e) { memory.cloud = false; console.warn("World memory: no cloud save, this browser only:", e && e.message); }
+  }
+  memory.saved = best && best.room === MP_CONNECT.room && best.world && typeof best.rev === "number" ? best : null;
+  memory.lastJson = memory.saved ? JSON.stringify(memory.saved.world) : "";
+  memory.ready = true;
+}
+
+/** Save my copy of the live camp, unless it is unchanged or older than the copy I hold. */
+function rememberWorld() {
+  if (ATTRACT || !memory.ready) return;
+  const rev = liveRev();
+  if (rev < 0 || (memory.saved && rev < memory.saved.rev)) return; // mine is newer: keep it, keep offering it
+  const doc = { room: MP_CONNECT.room, rev, at: Date.now(), world: worldSnapshot() };
+  const json = JSON.stringify(doc.world);
+  if (json === memory.lastJson) return;
+  memory.lastJson = json; memory.saved = doc;
+  try { localStorage.setItem(memoryKey(), JSON.stringify(doc)); } catch {}
+  if (player && memory.cloud) {
+    player.data.set(doc, { namespace: CONFIG.saveNs })
+      .catch((e) => e && e.current ? player.data.set(doc, { namespace: CONFIG.saveNs, version: e.current.version }) : Promise.reject(e))
+      .catch((e) => { if (e && (e.status === 401 || e.status === 403)) memory.cloud = false; });
+  }
+  const tag = document.getElementById("saved");
+  if (tag) { tag.classList.add("on"); setTimeout(() => tag.classList.remove("on"), 1600); }
+}
+
+/** Once a second: offer my copy if it beats the live camp (the host simply loads it). */
+function offerMemory() {
+  if (ATTRACT || !memory.ready) return;
+  const mine = memory.saved, live = liveRev(), better = mine && mine.rev > live;
+  if (isHost()) {
+    if (memory.offerRev) clearOffer();
+    if (better && live >= 0 && loadWorld(mine.world, mine.rev)) memoryAdopted("");
+    return;
+  }
+  if (better && memory.offerRev !== mine.rev) {
+    const json = JSON.stringify(mine.world), fields = {}, n = Math.ceil(json.length / 1900);
+    if (n > 40) return; // too big for my entity: keep it for when I am host
+    for (let i = 0; i < n; i++) fields["wm" + i] = "~" + json.slice(i * 1900, (i + 1) * 1900); // "~" keeps it a string
+    net.me.set(fields);
+    net.me.set("wmh", JSON.stringify({ room: MP_CONNECT.room, rev: mine.rev, n })); // header last: chunks land first
+    memory.offerRev = mine.rev; memory.offerN = n;
+  } else if (!better && memory.offerRev) clearOffer();
+}
+function clearOffer() {
+  const fields = { wmh: "" };
+  for (let i = 0; i < memory.offerN; i++) fields["wm" + i] = "";
+  net.me.set(fields); memory.offerRev = 0; memory.offerN = 0;
+}
+
+/** Host, once a second: adopt the best complete offer that beats the live camp. */
+function adoptOffers() {
+  let best = null;
+  for (const id of livePlayers()) {
+    const p = S.entities.players[id], h = id !== net.sessionId && parse(p && p.wmh, null);
+    if (!h || h.room !== MP_CONNECT.room || !(h.n <= 40) || !(h.rev > liveRev()) || (best && h.rev <= best.rev)) continue;
+    let json = "";
+    for (let i = 0; i < h.n && json !== null; i++) { const c = p["wm" + i]; json = typeof c === "string" && c[0] === "~" ? json + c.slice(1) : null; }
+    const world = parse(json, null);
+    if (world) best = { rev: h.rev, world, name: p.n || "A player" };
+  }
+  if (best && loadWorld(best.world, best.rev)) memoryAdopted(best.name);
+}
+function memoryAdopted(name) {
+  const text = name ? `${name} brought back the camp they saved` : "Welcome back: your saved camp is here";
+  toast(text); net.send("memory", { text: name ? text : "The host brought back the camp they saved" });
+}
+function memoryTick() {
+  offerMemory();
+  if (isHost() && !ATTRACT) adoptOffers();
+  if (performance.now() - memory.lastSave > CONFIG.saveEvery) { memory.lastSave = performance.now(); rememberWorld(); }
+}
+addEventListener("pagehide", () => rememberWorld());
+document.addEventListener("visibilitychange", () => { if (document.hidden) rememberWorld(); });
+
+// ── ISLAND ──────────────────────────────────────────────────────────────────────────
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const r1 = (v) => Math.round(v * 10) / 10, r2 = (v) => Math.round(v * 100) / 100;
+const nowSec = () => Date.now() / 1000;
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// Trees and rocks sit in the same seeded spots for everyone. NODES[i] is spot i.
+const NODES = [];
+{
+  const r = mulberry32(7), free = (x, z, gap) => NODES.every((n) => Math.hypot(n.x - x, n.z - z) > gap);
+  for (let tries = 0, trees = 0; trees < CONFIG.trees && tries < 6000; tries++) {
+    const a = r() * TAU, d = 10 + r() * (CONFIG.island - 12), x = Math.sin(a) * d, z = Math.cos(a) * d;
+    if (free(x, z, 2.7)) { NODES.push({ kind: "tree", x, z, s: 0.85 + r() * 0.4, max: CONFIG.treeHits, rot: r() * TAU, tone: Math.floor(r() * 3) }); trees++; }
+  }
+  for (let tries = 0, rocks = 0; rocks < CONFIG.rocks && tries < 6000; tries++) {
+    const a = r() * TAU, d = 7.5 + r() * (CONFIG.island - 9), x = Math.sin(a) * d, z = Math.cos(a) * d;
+    if (free(x, z, 2.4)) { NODES.push({ kind: "rock", x, z, s: 0.8 + r() * 0.5, max: CONFIG.rockHits, rot: r() * TAU, tone: Math.floor(r() * 3) }); rocks++; }
+  }
+}
+const TREES = NODES.filter((n) => n.kind === "tree"), ROCKS = NODES.filter((n) => n.kind === "rock");
+NODES.forEach((n, i) => { n.i = i; });
+/** How big a node is to bump into, given the swings it has left. */
+const nodeRadius = (n, hits) => n.kind === "tree" ? (hits > 0 ? 0.55 : 0.35) * n.s : hits > 0 ? n.s * (0.45 + 0.4 * hits / n.max) : 0;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog("#8fd0ff", 50, 140);
+scene.background = new THREE.Color("#8fd0ff");
+const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 300);
+function fit() {
+  renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight;
+  camera.fov = innerHeight > innerWidth ? 62 : 50; camera.updateProjectionMatrix();
+}
+addEventListener("resize", fit); addEventListener("orientationchange", fit); fit();
+const hemi = new THREE.HemisphereLight("#cfe8ff", "#4a6b3a", 1.1);
+const sun = new THREE.DirectionalLight("#fff1d6", 1.6);
+sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0008;
+Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 90 });
+scene.add(hemi, sun, sun.target);
+
+function canvasTex(w, h, paint, repeat) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat, repeat); }
+  return t;
+}
+const mesh = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m; };
+const look = mulberry32(3); // scenery only
+const grassTex = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = "#5fae4a"; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1400; i++) { c.fillStyle = ["#6bbb52", "#549e41", "#73c45a", "#4f9440"][i % 4]; c.fillRect(look() * w, look() * h, 2 + look() * 4, 2 + look() * 4); }
+}, 14);
+const sandTex = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = "#ecd59a"; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1600; i++) { c.fillStyle = ["#f3e0ac", "#dcc185", "#e6cc90"][i % 3]; c.fillRect(look() * w, look() * h, 2, 2); }
+}, 16);
+const sand = mesh(new THREE.CylinderGeometry(CONFIG.beach, CONFIG.beach + 4, 2, 72), new THREE.MeshStandardMaterial({ map: sandTex, roughness: 1 }), 0, -1.05, 0);
+sand.receiveShadow = true; scene.add(sand);
+const grass = mesh(new THREE.CylinderGeometry(CONFIG.island, CONFIG.island + 1.2, 0.3, 72), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }), 0, -0.15, 0);
+grass.receiveShadow = true; scene.add(grass);
+const waveTex = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = "#2f8fd0"; c.fillRect(0, 0, w, h); c.strokeStyle = "#ffffff30"; c.lineWidth = 2;
+  for (let i = 0; i < 40; i++) { const x = look() * w, y = look() * h; c.beginPath(); c.arc(x, y, 6 + look() * 10, 0.3, 1.6); c.stroke(); }
+}, 30);
+const seaMat = new THREE.MeshStandardMaterial({ map: waveTex, roughness: 0.35, metalness: 0.1 });
+const sea = mesh(new THREE.PlaneGeometry(400, 400), seaMat, 0, -0.45, 0); sea.rotation.x = -Math.PI / 2; scene.add(sea);
+const shallows = mesh(new THREE.RingGeometry(CONFIG.beach - 0.5, CONFIG.beach + 6, 72), new THREE.MeshBasicMaterial({ color: "#8ff0ff", transparent: true, opacity: 0.28, depthWrite: false }), 0, -0.4, 0);
+shallows.rotation.x = -Math.PI / 2; scene.add(shallows);
+
+// Instanced trees (trunk + two leafy blobs) and rocks: a few draw calls for the whole island.
+function instanced(geo, mat, count, shadow = true) {
+  const m = new THREE.InstancedMesh(geo, mat, count); m.castShadow = shadow; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); return m;
+}
+const trunkMesh = instanced(new THREE.CylinderGeometry(0.2, 0.3, 2.2, 7).translate(0, 1.1, 0), new THREE.MeshStandardMaterial({ color: "#7a5032", roughness: 1 }), TREES.length);
+const crownGeo = new THREE.IcosahedronGeometry(1.15, 0).translate(0, 2.8, 0), topGeo = new THREE.IcosahedronGeometry(0.75, 0).translate(0.15, 3.7, -0.1);
+const leafMat = new THREE.MeshStandardMaterial({ color: "#ffffff", flatShading: true, roughness: 0.9 });
+const seeThrough = new THREE.MeshStandardMaterial({ color: "#ffffff", flatShading: true, roughness: 0.9, transparent: true, opacity: 0.28, depthWrite: false });
+const crownMesh = instanced(crownGeo, leafMat, TREES.length), crownTop = instanced(topGeo, leafMat, TREES.length);
+// Crowns between the camera and me are drawn see-through instead, so they never hide me.
+const crownFade = instanced(crownGeo, seeThrough, TREES.length, false), topFade = instanced(topGeo, seeThrough, TREES.length, false);
+const rockMesh = instanced(new THREE.DodecahedronGeometry(1, 0).scale(1, 0.75, 1).translate(0, 0.45, 0), new THREE.MeshStandardMaterial({ color: "#ffffff", flatShading: true, roughness: 0.95 }), ROCKS.length);
+const LEAVES = ["#3f9a4a", "#4caf50", "#2f8a52"].map((c) => new THREE.Color(c)), LEAVES2 = ["#58b85a", "#68c25e", "#46a35e"].map((c) => new THREE.Color(c));
+const STONES = ["#9aa3a8", "#8a9196", "#a9a49a"].map((c) => new THREE.Color(c));
+TREES.forEach((n, i) => { for (const m of [crownMesh, crownFade]) m.setColorAt(i, LEAVES[n.tone]); for (const m of [crownTop, topFade]) m.setColorAt(i, LEAVES2[n.tone]); });
+ROCKS.forEach((n, i) => rockMesh.setColorAt(i, STONES[n.tone]));
+// Palms on the beach, just scenery.
+{
+  const palms = 12, trunk = instanced(new THREE.CylinderGeometry(0.16, 0.24, 3.6, 6).translate(0, 1.8, 0), new THREE.MeshStandardMaterial({ color: "#9a7448", roughness: 1 }), palms);
+  const leaf = instanced(new THREE.BoxGeometry(0.5, 0.08, 2.2).translate(0, 0, 1.1), new THREE.MeshStandardMaterial({ color: "#3c9a4f", roughness: 0.9 }), palms * 6);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), P = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+  for (let i = 0; i < palms; i++) {
+    const a = (i + look() * 0.6) / palms * TAU, d = CONFIG.island + 1.5 + look() * 2, x = Math.sin(a) * d, z = Math.cos(a) * d, lean = 0.25;
+    E.set(Math.cos(a) * lean, 0, -Math.sin(a) * lean); M.compose(P.set(x, 0, z), Q.setFromEuler(E), ONE); trunk.setMatrixAt(i, M);
+    const top = new THREE.Vector3(0, 3.6, 0).applyEuler(E).add(P.set(x, 0, z));
+    for (let k = 0; k < 6; k++) { E.set(0.35, k / 6 * TAU + a, 0, "YXZ"); M.compose(top, Q.setFromEuler(E), ONE); leaf.setMatrixAt(i * 6 + k, M); }
+  }
+}
+
+// What every screen draws for each node: eased from the swings-left numbers in state.
+const nodeViews = NODES.map(() => ({ hits: null, shake: 0, fall: -1, grow: 1, sc: 1 }));
+const M = new THREE.Matrix4(), L = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(0, 0, 0, "YXZ");
+const P3 = new THREE.Vector3(), S3 = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+const easeOutBack = (t) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
+let nodesSeen = false;
+function syncNodes(dt) {
+  const hits = nodeHits();
+  if (!nodesSeen && (hosting() || S.shared.nodes !== undefined)) { nodesSeen = true; nodeViews.forEach((v) => { v.hits = null; }); } // the real island arrived: no effects for it
+  NODES.forEach((n, i) => {
+    const v = nodeViews[i], h = hits[i];
+    if (v.hits === null) { v.hits = h; v.sc = h > 0 ? 1 : 0; return; }
+    if (h < v.hits) { v.shake = 0.3; if (n.kind === "tree") burst(n.x, 1.6, n.z, "#a5743f", 4, 2.5); else burst(n.x, 0.8, n.z, "#b9c0c4", 5, 3); }
+    if (h === 0 && v.hits > 0 && n.kind === "tree") { v.fall = 0; sfx("fall"); }
+    if (h > 0 && v.hits === 0) { v.grow = 0; v.fall = -1; }
+    v.hits = h;
+  });
+  TREES.forEach((n, k) => {
+    const v = nodeViews[n.i];
+    let tilt = 0, crown = 1, tall = 1;
+    if (v.hits === 0) {
+      if (v.fall >= 0 && v.fall < 1.1) {
+        v.fall += dt; tilt = Math.min(1, (v.fall / 0.7) ** 2) * 1.45;
+        if (v.fall > 0.85) crown = Math.max(0, 1 - (v.fall - 0.85) / 0.25);
+        if (v.fall >= 1.1) burst(n.x + Math.sin(n.rot) * 3, 0.8, n.z + Math.cos(n.rot) * 3, "#4caf50", 12, 4);
+      } else { crown = 0; tall = 0.2; }
+    } else if (v.grow < 1) { v.grow = Math.min(1, v.grow + dt * 1.4); crown = easeOutBack(v.grow); }
+    if (v.shake > 0) v.shake = Math.max(0, v.shake - dt);
+    const wob = Math.sin(v.shake * 70) * v.shake * 0.3;
+    E.set(tilt + wob, n.rot, 0); Q.setFromEuler(E);
+    M.compose(P3.set(n.x, 0, n.z), Q, S3.set(n.s, n.s * tall, n.s)); trunkMesh.setMatrixAt(k, M);
+    const c = Math.max(0.0001, crown * n.s), dx = n.x - me.x, dz = n.z - me.z, fade = !ATTRACT && dz > -1.3 && dz < 4.8 && Math.abs(dx) < 2.6;
+    M.compose(P3, Q, S3.set(c, c, c));
+    (fade ? crownFade : crownMesh).setMatrixAt(k, M); (fade ? topFade : crownTop).setMatrixAt(k, M);
+    M.compose(P3, Q, S3.set(0.0001, 0.0001, 0.0001));
+    (fade ? crownMesh : crownFade).setMatrixAt(k, M); (fade ? crownTop : topFade).setMatrixAt(k, M);
+  });
+  ROCKS.forEach((n, k) => {
+    const v = nodeViews[n.i], want = v.hits > 0 ? 0.5 + 0.5 * v.hits / n.max : 0;
+    v.sc += (want - v.sc) * Math.min(1, dt * 9);
+    if (v.shake > 0) v.shake = Math.max(0, v.shake - dt);
+    const s = Math.max(0.0001, v.sc * n.s), wob = Math.sin(v.shake * 80) * v.shake * 0.25;
+    E.set(0, n.rot, 0); Q.setFromEuler(E); M.compose(P3.set(n.x + wob, 0, n.z), Q, S3.set(s, s, s)); rockMesh.setMatrixAt(k, M);
+  });
+  for (const m of [trunkMesh, crownMesh, crownTop, crownFade, topFade, rockMesh]) m.instanceMatrix.needsUpdate = true;
+}
+
+// ── CAMP ────────────────────────────────────────────────────────────────────────────
+// On the wire `camp` is { f: [[x, z, out]], w: [[x, z, turn, hp]] }: fires (out = the second
+// their fuel runs out, a timestamp, so nobody has to count it down) and fences (turn = 0..15,
+// sixteenths of a full turn). Decoded: { f: [{x, z, out}], w: [{x, z, r, hp}] }.
+function decodeCamp(o) {
+  const f = [], w = [], nums = (a, n) => Array.isArray(a) && a.length >= n && a.slice(0, n).every(Number.isFinite);
+  if (o && Array.isArray(o.f)) for (const a of o.f) if (nums(a, 3)) f.push({ x: a[0], z: a[1], out: a[2] });
+  if (o && Array.isArray(o.w)) for (const a of o.w) if (nums(a, 4)) w.push({ x: a[0], z: a[1], r: a[2] & 15, hp: a[3] });
+  return { f: f.slice(0, CONFIG.maxFires), w: w.slice(0, CONFIG.maxWalls) };
+}
+const campWire = (c) => ({ f: c.f.map((f) => [r1(f.x), r1(f.z), Math.round(f.out)]), w: c.w.map((w) => [r1(w.x), r1(w.z), w.r, w.hp]) });
+const fuelLeft = (f) => Math.max(0, f.out - nowSec());
+const lightRadius = (fuel) => fuel <= 0 ? 0 : CONFIG.lightMin + (CONFIG.lightMax - CONFIG.lightMin) * Math.min(1, fuel / 60);
+const litFires = (camp) => camp.f.map((f) => ({ x: f.x, z: f.z, r: lightRadius(fuelLeft(f)) })).filter((l) => l.r > 0);
+const inLight = (x, z, lit) => lit.some((l) => (l.x - x) ** 2 + (l.z - z) ** 2 < l.r * l.r);
+const wallAngle = (r) => r * Math.PI / 8;
+/** The fire nearest (x, z), or null. */
+function nearestFire(camp, x, z, litOnly) {
+  let best = null, bd = Infinity;
+  for (const f of camp.f) { const d = Math.hypot(f.x - x, f.z - z); if (d < bd && (!litOnly || fuelLeft(f) > 0)) { bd = d; best = f; } }
+  return best;
+}
+/** Can a fence/campfire go at (x, z)? The same check runs on your screen and on the host. */
+function canBuild(camp, hits, k, x, z) {
+  if (Math.hypot(x, z) > CONFIG.island - 1) return false;
+  if (NODES.some((n, i) => Math.hypot(n.x - x, n.z - z) < nodeRadius(n, hits[i]) + (k === "fire" ? 1.3 : 0.5))) return false;
+  if (k === "fire") return camp.f.length < CONFIG.maxFires && camp.f.every((f) => Math.hypot(f.x - x, f.z - z) > 5) && camp.w.every((w) => Math.hypot(w.x - x, w.z - z) > 1.8);
+  return camp.w.length < CONFIG.maxWalls && camp.f.every((f) => Math.hypot(f.x - x, f.z - z) > 1.8) && camp.w.every((w) => Math.hypot(w.x - x, w.z - z) > 0.9);
+}
+
+// Campfires: a stone ring, logs, a flickering flame and a warm circle that shows the light.
+const stoneMat = new THREE.MeshStandardMaterial({ color: "#8d9296", flatShading: true, roughness: 1 });
+const logMat = new THREE.MeshStandardMaterial({ color: "#6b4426", roughness: 1 });
+const flameMat = new THREE.MeshBasicMaterial({ color: "#ff8a2b", transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+const flameCore = new THREE.MeshBasicMaterial({ color: "#ffe28a", transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+const glowTex = canvasTex(128, 128, (c) => { const g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, "#ffb15acc"); g.addColorStop(0.75, "#ff8a3a55"); g.addColorStop(1, "#ff8a3a00"); c.fillStyle = g; c.fillRect(0, 0, 128, 128); });
+function makeFire() {
+  const g = new THREE.Group();
+  for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, s = mesh(new THREE.DodecahedronGeometry(0.22, 0), stoneMat, Math.sin(a) * 0.72, 0.14, Math.cos(a) * 0.72); s.castShadow = true; g.add(s); }
+  for (const a of [0.5, 2.1]) { const l = mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.2, 6), logMat, 0, 0.12, 0); l.rotation.set(Math.PI / 2, a, 0, "YXZ"); g.add(l); }
+  const flame = new THREE.Group();
+  flame.add(mesh(new THREE.ConeGeometry(0.42, 1.3, 7).translate(0, 0.65, 0), flameMat), mesh(new THREE.ConeGeometry(0.24, 0.85, 6).translate(0, 0.42, 0), flameCore));
+  flame.position.y = 0.15; g.add(flame);
+  const embers = mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshBasicMaterial({ color: "#7a2410" }), 0, 0.03, 0); embers.rotation.x = -Math.PI / 2; g.add(embers);
+  const glow = mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }), 0, 0.05, 0);
+  glow.rotation.x = -Math.PI / 2; g.add(glow);
+  scene.add(g);
+  return { g, flame, glow, out: 0 };
+}
+const fireViews = [];
+// Four lights follow the lit fires nearest the camera (a fixed number keeps the shaders steady).
+const fireLights = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight("#ffa04a", 0, 20, 1.6); l.position.y = 1.6; scene.add(l); return l; });
+function syncFires(camp, t, night) {
+  while (fireViews.length < camp.f.length) fireViews.push(makeFire());
+  while (fireViews.length > camp.f.length) scene.remove(fireViews.pop().g);
+  camp.f.forEach((f, i) => {
+    const v = fireViews[i], fuel = fuelLeft(f), k = fuel > 0 ? 0.5 + 0.5 * Math.min(1, fuel / 60) : 0;
+    v.g.position.set(f.x, 0, f.z);
+    if (v.out && f.out > v.out + 3) burst(f.x, 0.8, f.z, "#ffc04a", 10, 3); // someone fed it
+    v.out = f.out;
+    v.flame.visible = k > 0;
+    v.flame.scale.set(k * (1 + Math.sin(t * 13 + i) * 0.08), k * (1 + Math.sin(t * 17 + i * 2) * 0.16), k);
+    v.glow.visible = k > 0;
+    v.glow.scale.setScalar(lightRadius(fuel));
+    v.glow.material.opacity = 0.1 + 0.22 * night;
+  });
+  const lit = camp.f.filter((f) => fuelLeft(f) > 0).sort((a, b) => Math.hypot(a.x - focus.x, a.z - focus.z) - Math.hypot(b.x - focus.x, b.z - focus.z));
+  fireLights.forEach((l, i) => {
+    const f = lit[i];
+    l.intensity = f ? (3 + 22 * night) * (0.6 + 0.4 * Math.min(1, fuelLeft(f) / 60)) * (1 + Math.sin(t * 11 + i) * 0.06) : 0;
+    if (f) l.position.set(f.x, 1.6, f.z);
+  });
+}
+
+// Fences: stakes (one per bite they can still take) on a crossbar, all instanced.
+const MAXSTAKES = CONFIG.maxWalls * (CONFIG.wallHp + 1);
+const stakeMesh = instanced(new THREE.CylinderGeometry(0.12, 0.15, 1.25, 6).translate(0, 0.62, 0), new THREE.MeshStandardMaterial({ color: "#9b6a3c", roughness: 1 }), MAXSTAKES);
+const tipMesh = instanced(new THREE.ConeGeometry(0.13, 0.36, 6).translate(0, 1.42, 0), new THREE.MeshStandardMaterial({ color: "#c79a62", roughness: 1 }), MAXSTAKES);
+const barMesh = instanced(new THREE.BoxGeometry(2.4, 0.13, 0.1).translate(0, 0.72, 0.12), new THREE.MeshStandardMaterial({ color: "#7a5032", roughness: 1 }), CONFIG.maxWalls);
+let wallSig = "", wallKeys = new Set();
+function syncWalls(camp) {
+  const sig = camp.w.map((w) => `${w.x},${w.z},${w.r},${w.hp}`).join("|");
+  if (sig === wallSig) return;
+  wallSig = sig;
+  const keys = new Set(camp.w.map((w) => `${w.x},${w.z}`));
+  for (const k of wallKeys) if (!keys.has(k)) { const [x, z] = k.split(",").map(Number); burst(x, 0.7, z, "#9b6a3c", 12, 4); sfx("break"); }
+  wallKeys = keys;
+  let n = 0;
+  camp.w.forEach((w, i) => {
+    const a = wallAngle(w.r), ax = Math.cos(a), az = -Math.sin(a), stakes = Math.max(1, Math.min(CONFIG.wallHp + 1, w.hp + 1));
+    E.set(0, a, 0); Q.setFromEuler(E);
+    M.compose(P3.set(w.x, 0, w.z), Q, w.hp > 1 ? ONE : S3.set(0.0001, 0.0001, 0.0001)); barMesh.setMatrixAt(i, M);
+    for (let k = 0; k < stakes; k++) {
+      const off = (k - (CONFIG.wallHp) / 2) * 0.5, h = 0.85 + ((i * 7 + k * 3) % 5) * 0.06;
+      E.set(((k + i) % 3 - 1) * 0.06, a, 0); Q.setFromEuler(E);
+      M.compose(P3.set(w.x + ax * off, 0, w.z + az * off), Q, S3.set(1, h, 1)); stakeMesh.setMatrixAt(n, M); tipMesh.setMatrixAt(n++, M);
+    }
+  });
+  stakeMesh.count = tipMesh.count = n; barMesh.count = camp.w.length;
+  for (const m of [stakeMesh, tipMesh, barMesh]) m.instanceMatrix.needsUpdate = true;
+}
+
+// ── SURVIVORS ───────────────────────────────────────────────────────────────────────
+const skinMat = new THREE.MeshStandardMaterial({ color: "#f1c7a0", roughness: 0.7 });
+const pantsMat = new THREE.MeshStandardMaterial({ color: "#3b4256", roughness: 0.8 });
+const strawMat = new THREE.MeshStandardMaterial({ color: "#e8c872", roughness: 0.9 });
+const eyeMat = new THREE.MeshBasicMaterial({ color: "#1d1d29" });
+const handleMat = new THREE.MeshStandardMaterial({ color: "#8a5a33", roughness: 1 });
+const headMat = new THREE.MeshStandardMaterial({ color: "#aab3b8", roughness: 0.5, metalness: 0.3 });
+function nameTag(text) {
+  const tex = canvasTex(256, 64, (c) => { c.font = "bold 32px system-ui"; c.textAlign = "center"; c.lineWidth = 6; c.strokeStyle = "#000b"; c.strokeText(text, 128, 44); c.fillStyle = "#fff"; c.fillText(text, 128, 44); });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false })); s.scale.set(3.6, 0.9, 1); s.position.y = 2.75; return s;
+}
+/** The tools held in the right hand: 1 axe, 2 pickaxe, 3 spear. They point forward from the hand. */
+function makeTools(hand) {
+  const axe = new THREE.Group(), pick = new THREE.Group(), spear = new THREE.Group();
+  const handle = (len) => { const m = mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 6), handleMat, 0, 0, len / 2 - 0.1); m.rotation.x = Math.PI / 2; return m; };
+  axe.add(handle(0.8), mesh(new THREE.BoxGeometry(0.05, 0.26, 0.22), headMat, 0, -0.1, 0.62));
+  pick.add(handle(0.8), mesh(new THREE.BoxGeometry(0.06, 0.62, 0.08), headMat, 0, 0, 0.66));
+  const tip = mesh(new THREE.ConeGeometry(0.07, 0.3, 6), headMat, 0, 0, 1.4); tip.rotation.x = Math.PI / 2;
+  spear.add(handle(1.5), tip);
+  const tools = [null, axe, pick, spear];
+  for (const t of [axe, pick, spear]) { t.position.set(0, -0.58, 0.02); t.visible = false; hand.add(t); }
+  return tools;
+}
+function makeSurvivor(color, name) {
+  const g = new THREE.Group(), body = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+  const limb = (x, y, w, h, m) => { const pivot = new THREE.Group(); pivot.position.set(x, y, 0); const p = mesh(new THREE.BoxGeometry(w, h, 0.24), m, 0, -h / 2, 0); p.castShadow = true; pivot.add(p); body.add(pivot); return pivot; };
+  const legL = limb(-0.15, 0.72, 0.24, 0.72, pantsMat), legR = limb(0.15, 0.72, 0.24, 0.72, pantsMat);
+  const torso = mesh(new THREE.BoxGeometry(0.62, 0.72, 0.38), mat, 0, 1.08, 0), head = mesh(new THREE.BoxGeometry(0.48, 0.46, 0.46), skinMat, 0, 1.68, 0);
+  const brim = mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16), strawMat, 0, 1.93, 0), crown = mesh(new THREE.CylinderGeometry(0.22, 0.27, 0.22, 12), strawMat, 0, 2.05, 0);
+  body.add(torso, head, brim, crown, mesh(new THREE.BoxGeometry(0.08, 0.1, 0.02), eyeMat, -0.11, 1.7, 0.24), mesh(new THREE.BoxGeometry(0.08, 0.1, 0.02), eyeMat, 0.11, 1.7, 0.24));
+  for (const m of [torso, head, brim]) m.castShadow = true;
+  const armL = limb(-0.42, 1.4, 0.18, 0.64, mat), armR = limb(0.42, 1.4, 0.18, 0.64, mat);
+  const tools = makeTools(armR);
+  const ring = mesh(new THREE.RingGeometry(0.5, 0.66, 28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75 }), 0, 0.04, 0);
+  ring.rotation.x = -Math.PI / 2;
+  g.add(body, ring);
+  if (name) g.add(nameTag(name));
+  g.userData = { body, legL, legR, armL, armR, tools, walk: 0, px: 0, pz: 0, swingAt: -9999, sw: null };
+  scene.add(g); return g;
+}
+/** Pose survivor model g for survivor s: walking, swinging its tool, or knocked flat. */
+function poseSurvivor(g, s, now) {
+  const u = g.userData, moved = Math.hypot(s.x - u.px, s.z - u.pz);
+  u.walk += moved * 2.4; u.px = s.x; u.pz = s.z;
+  if (u.sw !== null && s.sw !== u.sw) u.swingAt = now;
+  u.sw = s.sw;
+  g.position.set(s.x, 0, s.z); g.rotation.y = s.a;
+  u.body.rotation.x = s.ko ? -Math.PI / 2 : 0; u.body.position.y = s.ko ? 0.25 : 0;
+  const step = s.ko ? 0 : Math.sin(u.walk) * Math.min(1, moved * 30) * 0.8;
+  u.legL.rotation.x = step; u.legR.rotation.x = -step; u.armL.rotation.x = -step * 0.8;
+  const k = (now - u.swingAt) / CONFIG.swingMs; // wind up, strike, settle
+  u.armR.rotation.x = s.ko ? 0 : k < 0.35 ? -0.3 - 2.3 * (k / 0.35) : k < 0.6 ? -2.6 + 2.3 * ((k - 0.35) / 0.25) : -0.3 + step * 0.6;
+  u.tools.forEach((t, i) => { if (t) t.visible = s.t === i; });
+}
+
+// ── CRABS ───────────────────────────────────────────────────────────────────────────
+// On the wire `crabs` is { q: crabs still to come tonight, l: [[id, x, z, heading, hp]] }.
+const decodeCrabs = (o) => ({ q: o && typeof o.q === "number" ? o.q : 0, list: o && Array.isArray(o.l) ? o.l.filter((a) => Array.isArray(a) && a.length >= 5).map((a) => ({ id: a[0], x: a[1], z: a[2], h: a[3], hp: a[4] })) : [] });
+// Drawn with one InstancedMesh per body part, so thirty crabs cost a handful of draw calls.
+const MAXC = 40;
+function crabPart(geo, mat, per) {
+  const m = new THREE.InstancedMesh(geo, mat, MAXC * per); m.castShadow = true; m.frustumCulled = false; m.count = 0;
+  if (!mat.map && !mat.isMeshBasicMaterial) for (let i = 0; i < MAXC * per; i++) m.setColorAt(i, WHITE);
+  scene.add(m); return m;
+}
+const WHITE = new THREE.Color("#fff");
+const SHELL = new THREE.Color("#5a3b8c"), CLAW = new THREE.Color("#7a4fb0");
+const cBody = crabPart(new THREE.SphereGeometry(0.5, 14, 8).scale(1, 0.5, 0.8).translate(0, 0.34, 0), new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.5 }), 1);
+const cClaw = crabPart(new THREE.SphereGeometry(0.2, 8, 6).scale(1, 0.7, 1.35), new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.5 }), 2);
+const cEye = crabPart(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: "#eaff6a" }), 2);
+const cLeg = crabPart(new THREE.BoxGeometry(0.46, 0.06, 0.06).translate(0.23, 0, 0), new THREE.MeshStandardMaterial({ color: "#3d2766", roughness: 0.8 }), 6);
+cEye.castShadow = false;
+const crabViews = new Map(); // crab id -> what this screen draws: eased position, hit flash, death
+function syncCrabs(dt) {
+  const seen = new Set(), k = hosting() ? 1 : 1 - Math.pow(0.002, dt);
+  for (const c of crabList()) {
+    seen.add(c.id);
+    let v = crabViews.get(c.id);
+    if (!v || v.dead) { v = { x: c.x, z: c.z, h: c.h, hp: c.hp, flash: 0, dead: 0, walk: Math.random() * 6, rise: 0 }; crabViews.set(c.id, v); }
+    if (c.hp < v.hp) { v.flash = 0.12; burst(v.x, 0.6, v.z, "#b48cff", 4, 3); }
+    v.hp = c.hp;
+    const px = v.x, pz = v.z;
+    v.x += (c.x - v.x) * k; v.z += (c.z - v.z) * k; v.h += Math.atan2(Math.sin(c.h - v.h), Math.cos(c.h - v.h)) * k;
+    v.walk += Math.hypot(v.x - px, v.z - pz) * 6; v.rise = Math.min(1, v.rise + dt * 2);
+  }
+  for (const [id, v] of crabViews) if (!seen.has(id) && !v.dead) { v.dead = 0.001; burst(v.x, 0.5, v.z, "#7a4fb0", 10, 4); burst(v.x, 0.5, v.z, "#eaff6a", 5, 3); }
+}
+function putPart(part, i, x, y, z, rx, ry, rz) { E.set(rx, ry, rz); Q.setFromEuler(E); L.compose(P3.set(x, y, z), Q, ONE).premultiply(M); part.setMatrixAt(i, L); }
+function drawCrabs(dt, t) {
+  let i = 0;
+  for (const [id, v] of crabViews) {
+    if (v.dead) { v.dead += dt; if (v.dead > 0.5) { crabViews.delete(id); continue; } }
+    if (i >= MAXC) continue;
+    const s = (v.dead ? Math.max(0.01, 1 - v.dead * 2) : 1) * CONFIG.crabSize, bob = Math.abs(Math.sin(v.walk)) * 0.05, y = (v.rise - 1) * 0.8 + bob;
+    E.set(0, v.h, 0); Q.setFromEuler(E); M.compose(P3.set(v.x, y, v.z), Q, S3.set(s, s, s));
+    const snap = Math.max(0, Math.sin(t * 9 + id)) * 0.35;
+    putPart(cBody, i, 0, 0, 0, 0, 0, 0);
+    putPart(cClaw, i * 2, -0.42, 0.32, 0.5, 0, 0.4 + snap, 0); putPart(cClaw, i * 2 + 1, 0.42, 0.32, 0.5, 0, -0.4 - snap, 0);
+    putPart(cEye, i * 2, -0.14, 0.62, 0.3, 0, 0, 0); putPart(cEye, i * 2 + 1, 0.14, 0.62, 0.3, 0, 0, 0);
+    for (let k = 0; k < 6; k++) {
+      const side = k < 3 ? 1 : -1, row = k % 3, wig = Math.sin(v.walk + row * 2 + (side > 0 ? 0 : 1.5)) * 0.35;
+      putPart(cLeg, i * 6 + k, side * 0.34, 0.3, -0.18 + row * 0.2, 0, side > 0 ? wig * 0.5 : Math.PI + wig * 0.5, -0.55);
+    }
+    const lit = v.flash > 0; v.flash -= dt;
+    cBody.setColorAt(i, lit ? WHITE : SHELL); cClaw.setColorAt(i * 2, lit ? WHITE : CLAW); cClaw.setColorAt(i * 2 + 1, lit ? WHITE : CLAW);
+    i++;
+  }
+  for (const [part, n] of [[cBody, i], [cClaw, i * 2], [cEye, i * 2], [cLeg, i * 6]]) {
+    part.count = n; part.instanceMatrix.needsUpdate = true; if (part.instanceColor) part.instanceColor.needsUpdate = true;
+  }
+}
+
+// ── EFFECTS ─────────────────────────────────────────────────────────────────────────
+// Particles: little cubes that pop, fall and shrink.
+const MAXP = 500, bits = [], colorCache = new Map();
+const bitMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), new THREE.MeshBasicMaterial(), MAXP);
+bitMesh.frustumCulled = false; bitMesh.count = 0; for (let i = 0; i < MAXP; i++) bitMesh.setColorAt(i, WHITE); scene.add(bitMesh);
+function burst(x, y, z, color, n, speed = 3) {
+  if (!colorCache.has(color)) colorCache.set(color, new THREE.Color(color));
+  for (let i = 0; i < n; i++) {
+    if (bits.length >= MAXP) bits.shift();
+    const a = Math.random() * TAU, s = speed * (0.4 + Math.random());
+    bits.push({ x, y, z, vx: Math.sin(a) * s, vy: 1.5 + Math.random() * speed, vz: Math.cos(a) * s, life: 0.5 + Math.random() * 0.4, c: colorCache.get(color) });
+  }
+}
+function stepBits(dt) {
+  let n = 0;
+  for (let i = bits.length - 1; i >= 0; i--) {
+    const p = bits[i]; p.life -= dt;
+    if (p.life <= 0) { bits.splice(i, 1); continue; }
+    p.vy -= 14 * dt; p.x += p.vx * dt; p.y = Math.max(0.12, p.y + p.vy * dt); p.z += p.vz * dt;
+    if (p.y <= 0.12) { p.vx *= 0.8; p.vz *= 0.8; }
+  }
+  for (const p of bits) { const s = Math.min(1, p.life * 2.5); M.compose(P3.set(p.x, p.y, p.z), Q.identity(), S3.set(s, s, s)); bitMesh.setMatrixAt(n, M); bitMesh.setColorAt(n++, p.c); }
+  bitMesh.count = n; bitMesh.instanceMatrix.needsUpdate = true; if (bitMesh.instanceColor) bitMesh.instanceColor.needsUpdate = true;
+}
+let audio = null; // made on the first tap or key (browsers block sound before that)
+function sfx(kind) {
+  if (!audio || ATTRACT) return;
+  const [f0, f1, dur, vol, type] = { chop: [190, 90, 0.09, 0.09, "square"], mine: [900, 500, 0.07, 0.05, "triangle"], hit: [320, 120, 0.08, 0.07, "sawtooth"],
+    hurt: [160, 50, 0.25, 0.12, "sawtooth"], craft: [520, 1040, 0.18, 0.06, "triangle"], build: [140, 80, 0.15, 0.1, "square"], fall: [120, 40, 0.4, 0.08, "sawtooth"],
+    fuel: [260, 520, 0.2, 0.05, "sine"], night: [220, 70, 1.2, 0.08, "sine"], dawn: [440, 880, 0.6, 0.07, "triangle"], break: [200, 60, 0.2, 0.08, "square"] }[kind] || [];
+  if (!f0) return;
+  const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+}
+// The sky: daylight 1 = noon, 0 = deep night. Dusk fades over the last duskMs of the day, dawn over the last of the night.
+function daylight(s) {
+  if (!s) return 1;
+  const left = s.endsAt - Date.now();
+  return s.phase === "day" ? clamp(left / CONFIG.duskMs, 0, 1) : 1 - clamp(left / CONFIG.duskMs, 0, 1);
+}
+const SKY = { day: new THREE.Color("#8fd0ff"), dusk: new THREE.Color("#f39a5b"), night: new THREE.Color("#162a52") };
+const SEA = { day: new THREE.Color("#ffffff"), night: new THREE.Color("#3a5a8c") };
+const LIGHT = { hemiNight: new THREE.Color("#9db4ff"), hemiDay: new THREE.Color("#cfe8ff"), moon: new THREE.Color("#a9bcff"), sun: new THREE.Color("#fff1d6"), low: new THREE.Color("#ffb27a") };
+const skyCol = new THREE.Color();
+function applySky(f) {
+  if (f > 0.5) skyCol.copy(SKY.dusk).lerp(SKY.day, (f - 0.5) * 2); else skyCol.copy(SKY.night).lerp(SKY.dusk, f * 2);
+  scene.background.copy(skyCol); scene.fog.color.copy(skyCol);
+  scene.fog.near = 30 + 20 * f; scene.fog.far = 85 + 55 * f;
+  hemi.intensity = 0.9 + 0.3 * f; hemi.color.copy(LIGHT.hemiNight).lerp(LIGHT.hemiDay, f);
+  sun.intensity = 0.45 + 1.2 * f; sun.color.copy(LIGHT.moon).lerp(f > 0.5 ? LIGHT.sun : LIGHT.low, Math.min(1, f * 2));
+  seaMat.color.copy(SEA.night).lerp(SEA.day, f);
+}
+
+// ── ISLAND (HOST) ───────────────────────────────────────────────────────────────────
+const host = { acting: false, adopted: false, lastSky: null, hits: [], regrow: new Map(), camp: { f: [], w: [] }, rev: 0,
+  crabs: new Map(), queue: 0, nextId: 1, spawnIn: 0, bots: new Map(), bites: {},
+  nodesDirty: false, campDirty: false, revDirty: false, lastNodes: 0, lastCamp: 0, lastCrabs: 0, lastBots: 0, lastBite: 0, crabsJson: "", botsJson: "" };
+/** The clock as state has it, or the host's own newer write that hasn't come back yet. `v` only goes up. */
+function sky() {
+  const s = parseOnce("sky", S.shared.sky, (o) => o && typeof o.endsAt === "number" ? o : null);
+  return host.lastSky && host.acting && (!s || host.lastSky.v > s.v) ? host.lastSky : s;
+}
+function writeSky(s) { s = { ...s, v: (sky()?.v ?? 0) + 1 }; host.lastSky = s; net.setShared("sky", JSON.stringify(s)); return s; }
+const readNodes = () => parseOnce("nodes", S.shared.nodes, (o) => {
+  const hits = NODES.map((n) => n.max), regrow = new Map();
+  if (o && typeof o.h === "string" && o.h[0] === "~") NODES.forEach((n, i) => { const c = o.h.charCodeAt(i + 1) - 97; if (c >= 0 && c <= 9) hits[i] = Math.min(n.max, c); });
+  if (o && o.g && typeof o.g === "object") for (const [k, at] of Object.entries(o.g)) if (+k >= 0 && +k < NODES.length && typeof at === "number") regrow.set(+k, at);
+  return { hits, regrow };
+});
+const readCamp = () => parseOnce("camp", S.shared.camp, decodeCamp);
+const readCrabs = () => parseOnce("crabs", S.shared.crabs, decodeCrabs);
+const readBots = () => parseOnce("bots", S.shared.bots, (o) => Array.isArray(o) ? o.filter((b) => b && typeof b.id === "string") : []);
+const hosting = () => host.acting && host.adopted;
+const nodeHits = () => (hosting() ? host.hits : readNodes().hits);
+const campNow = () => (hosting() ? host.camp : readCamp());
+const crabList = () => (hosting() ? [...host.crabs.values()] : readCrabs().list);
+const botList = () => (hosting() ? [...host.bots.values()] : readBots());
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/** Become host: take over the island exactly as state has it. */
+function adopt() {
+  host.adopted = true; host.lastSky = null;
+  const n = readNodes(); host.hits = n.hits.slice(); host.regrow = new Map(n.regrow);
+  const c = readCamp(); host.camp = { f: c.f.map((f) => ({ ...f })), w: c.w.map((w) => ({ ...w })) };
+  host.rev = Number(S.shared.rev) || 0;
+  const cr = readCrabs(); host.crabs.clear(); host.queue = cr.q;
+  for (const z of cr.list) host.crabs.set(z.id, { ...z, cd: 0.8, chew: 0, burn: 0, stun: 0, target: null, retarget: 0 });
+  host.nextId = (Math.max(0, ...host.crabs.keys()) + 1) % 10000;
+  host.bots.clear();
+  readBots().forEach((b, i) => host.bots.set(b.id, { ...b, cd: 0.5, goal: null, think: 0, healT: 0, post: TAU * i / CONFIG.seats }));
+  host.crabsJson = S.shared.crabs; host.botsJson = S.shared.bots;
+}
+/** A camp with every fire burning for at least `sec` more seconds. */
+function refuel(camp, sec) { for (const f of camp.f) f.out = Math.max(f.out, nowSec() + sec); return camp; }
+function defaultCamp() {
+  const camp = { f: [{ x: 0, z: 0, out: nowSec() + 90 }], w: [] };
+  if (ATTRACT) { // the preview: a smaller fire with a fence arc behind it, so the crabs reach the islanders
+    camp.f[0].out = nowSec() + 32;
+    for (let i = 0; i < 9; i++) { const a = Math.PI + (i - 4) / 22 * TAU, d = 8; camp.w.push({ x: r1(Math.sin(a) * d), z: r1(Math.cos(a) * d), r: Math.round(a / (Math.PI / 8)) & 15, hp: CONFIG.wallHp }); }
+  }
+  return camp;
+}
+/** The first player into an empty room: a fresh island, or the camp it remembers. */
+function newIsland(saved) {
+  host.adopted = true; host.lastSky = null;
+  host.hits = NODES.map((n) => n.max); host.regrow = new Map();
+  host.camp = saved ? refuel(decodeCamp(saved.world.camp), 60) : defaultCamp();
+  host.rev = saved ? saved.rev : 0;
+  host.crabs.clear(); host.queue = 0; host.bots.clear();
+  host.nodesDirty = host.campDirty = host.revDirty = true;
+  writeSky({ day: saved ? Math.max(1, saved.world.day | 0) : 1, phase: "day", endsAt: Date.now() + CONFIG.firstDayMs });
+  if (saved) memoryAdopted("");
+}
+// The game's half of WORLD MEMORY.
+function worldSnapshot() { return { camp: campWire(campNow()), day: sky()?.day ?? 1 }; }
+function liveRev() { return hosting() ? host.rev : typeof S.shared.rev === "number" ? S.shared.rev : -1; }
+function loadWorld(snap, rev) {
+  if (!snap || typeof snap !== "object" || !snap.camp || typeof rev !== "number") return false;
+  host.camp = refuel(decodeCamp(snap.camp), 60); host.rev = rev; host.campDirty = host.revDirty = true;
+  const s = sky(); if (s && snap.day > 0) writeSky({ ...s, day: Math.max(1, snap.day | 0) });
+  return true;
+}
+
+/** Bots fill the island up to CONFIG.seats; one leaves when a person joins. A bot never wears a person's color. */
+function fitBots() {
+  const humans = livePlayers().filter((id) => !(ATTRACT && id === net.sessionId)).length, want = Math.max(0, CONFIG.seats - humans);
+  const people = new Set(team().filter((s) => !s.bot).map((s) => s.color));
+  for (const b of host.bots.values()) if (people.has(b.color)) { const used = new Set(team().map((s) => s.color)); b.color = COLORS.find((c) => !used.has(c)) || b.color; }
+  while (host.bots.size > want) host.bots.delete([...host.bots.keys()].pop());
+  while (host.bots.size < want) {
+    const taken = new Set(team().map((s) => s.color)), names = new Set([...host.bots.values()].map((b) => b.name));
+    const id = "b" + Math.random().toString(36).slice(2, 6), post = TAU * host.bots.size / CONFIG.seats + 0.5;
+    const home = host.camp.f[0] || { x: 0, z: 0 };
+    host.bots.set(id, { id, name: BOT_NAMES.find((n) => !names.has(n)) || "Bot", color: COLORS.find((c) => !taken.has(c)) || "#ccc",
+      x: home.x + Math.sin(post) * 3, z: home.z + Math.cos(post) * 3, a: post, hp: CONFIG.hp, ko: 0, wk: 0, sw: 0, t: 0, w: 2, s: 0,
+      cd: 0, goal: null, think: 0, healT: 0, post });
+  }
+}
+const crabsTonight = (day) => CONFIG.crabs + CONFIG.crabsGrow * (day - 1);
+function spawnCrab(day) {
+  const a = Math.random() * TAU, r = CONFIG.spawnRadius + Math.random() * 2, id = host.nextId;
+  host.nextId = (host.nextId + 1) % 10000;
+  host.crabs.set(id, { id, x: Math.sin(a) * r, z: Math.cos(a) * r, h: a + Math.PI, hp: CONFIG.crabHp + Math.floor((day - 1) / 3), cd: 1, chew: 0, burn: 0, stun: 0, target: null, retarget: 0 });
+}
+/** Push a body (x, z) of radius r out of trees, rocks and fires, and keep it on the island. */
+function collide(o, r, camp, hits) {
+  NODES.forEach((n, i) => {
+    const nr = nodeRadius(n, hits[i]) + r, dx = o.x - n.x, dz = o.z - n.z, d = Math.hypot(dx, dz);
+    if (nr > r && d < nr && d > 0.001) { o.x = n.x + dx / d * nr; o.z = n.z + dz / d * nr; }
+  });
+  for (const f of camp.f) { const dx = o.x - f.x, dz = o.z - f.z, d = Math.hypot(dx, dz), fr = 0.85 + r; if (d < fr && d > 0.001) { o.x = f.x + dx / d * fr; o.z = f.z + dz / d * fr; } }
+  const d = Math.hypot(o.x, o.z), edge = CONFIG.beach - 1; if (d > edge) { o.x *= edge / d; o.z *= edge / d; }
+}
+/** Push a crab out of the fences; returns the fence it bumped into, or null. */
+function bumpFence(o, r, camp) {
+  let hit = null;
+  for (const w of camp.w) {
+    const a = wallAngle(w.r), c = Math.cos(a), s = Math.sin(a), dx = o.x - w.x, dz = o.z - w.z;
+    const lx = c * dx - s * dz, lz = s * dx + c * dz, cx = clamp(lx, -1.2, 1.2), cz = clamp(lz, -0.22, 0.22);
+    let ex = lx - cx, ez = lz - cz, d = Math.hypot(ex, ez);
+    if (d >= r) continue;
+    if (d < 0.001) { ex = 0; ez = lz >= 0 ? 1 : -1; d = 0; } else { ex /= d; ez /= d; }
+    const push = r - d, wx = c * ex + s * ez, wz = -s * ex + c * ez;
+    o.x += wx * push; o.z += wz * push; hit = w;
+  }
+  return hit;
+}
+/** Every crab: pick a survivor (or the fire), crawl to it, keep apart, chew fences, burn in firelight, bite. */
+function stepCrabs(dt, s) {
+  const people = team().filter((p) => !p.ko), list = [...host.crabs.values()], camp = host.camp, lit = litFires(camp), home = camp.f[0] || { x: 0, z: 0 };
+  const speed = CONFIG.crabSpeed * (1 + 0.04 * (s.day - 1));
+  for (const c of list) {
+    c.retarget -= dt; c.cd -= dt; c.chew -= dt; c.stun -= dt;
+    if (c.retarget <= 0) {
+      c.retarget = 0.6; c.target = null;
+      let bd = CONFIG.aggro ** 2;
+      for (const p of people) { const d = (p.x - c.x) ** 2 + (p.z - c.z) ** 2; if (d < bd) { bd = d; c.target = p.id; } }
+    }
+    const p = c.target && people.find((q) => q.id === c.target);
+    const tx = p ? p.x : home.x, tz = p ? p.z : home.z, dx = tx - c.x, dz = tz - c.z, d = Math.hypot(dx, dz) || 1;
+    const lighted = inLight(c.x, c.z, lit);
+    c.h = Math.atan2(dx, dz);
+    if (c.stun <= 0 && d > 0.95) { const step = Math.min(d - 0.95, speed * (lighted ? CONFIG.lightSlow : 1) * dt); c.x += dx / d * step; c.z += dz / d * step; }
+    for (const o of list) {
+      if (o === c) continue;
+      const ox = c.x - o.x, oz = c.z - o.z, od = Math.hypot(ox, oz);
+      if (od < 0.9 && od > 0.001) { c.x += ox / od * (0.9 - od) * 0.5; c.z += oz / od * (0.9 - od) * 0.5; }
+    }
+    const fence = bumpFence(c, 0.45, camp);
+    if (fence && c.chew <= 0) { c.chew = 1.2; fence.hp--; if (fence.hp <= 0) camp.w.splice(camp.w.indexOf(fence), 1); host.campDirty = true; }
+    collide(c, 0.45, camp, host.hits);
+    if (lighted) { c.burn += dt * 1000; if (c.burn >= CONFIG.burnMs) { c.burn = 0; c.hp--; c.stun = 0.25; if (c.hp <= 0) { host.crabs.delete(c.id); continue; } } }
+    if (p && d < 1.3 && c.cd <= 0 && c.stun <= 0) { c.cd = CONFIG.biteEvery; bite(p.id, CONFIG.crabBite); }
+  }
+}
+/** A crab bites survivor `to`. */
+function bite(to, d) {
+  const bot = host.bots.get(to);
+  if (bot) { bot.hp -= d; burst(bot.x, 1.2, bot.z, "#ff5d6c", 5, 3); if (bot.hp <= 0) Object.assign(bot, { hp: 0, ko: 1, wk: Date.now() + 6000, goal: null, w: Math.floor(bot.w / 2), s: Math.floor(bot.s / 2) }); }
+  else if (to === net.sessionId) applyBite(d);
+  else host.bites[to] = (host.bites[to] || 0) + d; // sent 4 times a second, one event per bitten player
+}
+// The intents. Each checks what it is told; the host's own swings call these directly.
+function applyNodeHit(i) {
+  if (!(i >= 0 && i < NODES.length) || host.hits[i] <= 0) return false;
+  host.hits[i]--; if (host.hits[i] === 0) host.regrow.set(i, Math.round(nowSec() + CONFIG.regrowMs / 1000));
+  host.nodesDirty = true; return true;
+}
+function applyCrabHit(id, d, fx, fz) {
+  const c = host.crabs.get(id);
+  if (!c) return;
+  c.hp -= clamp(Math.round(d) || 1, 1, 2); c.stun = 0.35;
+  const dx = c.x - fx, dz = c.z - fz, l = Math.hypot(dx, dz) || 1; c.x += dx / l * 0.9; c.z += dz / l * 0.9; // knocked back
+  if (c.hp <= 0) host.crabs.delete(id);
+}
+function applyFuel(x, z) {
+  const f = nearestFire(host.camp, x, z, false);
+  if (!f || Math.hypot(f.x - x, f.z - z) > 3.5) return;
+  f.out = Math.min(nowSec() + CONFIG.maxFuel, Math.max(nowSec(), f.out) + CONFIG.fuelPerWood); host.campDirty = true;
+}
+function applyBuild(m, human) {
+  const { k, x, z, r } = m || {};
+  if ((k !== "wall" && k !== "fire") || !Number.isFinite(x) || !Number.isFinite(z) || !canBuild(host.camp, host.hits, k, x, z)) return false;
+  if (k === "fire") host.camp.f.push({ x: r1(x), z: r1(z), out: nowSec() + 45 });
+  else host.camp.w.push({ x: r1(x), z: r1(z), r: (r | 0) & 15, hp: CONFIG.wallHp });
+  host.campDirty = true;
+  if (human) { host.rev++; host.revDirty = true; }
+  return true;
+}
+/** Wake a knocked-out survivor (bot or me) by the nearest burning fire. */
+function wakeUp(s, camp) {
+  const f = nearestFire(camp, s.x, s.z, true) || camp.f[0] || { x: 0, z: 0 }, a = Math.random() * TAU;
+  Object.assign(s, { x: f.x + Math.sin(a) * 2.2, z: f.z + Math.cos(a) * 2.2, hp: CONFIG.hp, ko: 0, healT: 0 });
+}
+/** Hearts come back slowly in firelight. */
+function healTick(s, dt, lit) {
+  if (s.hp >= CONFIG.hp || !inLight(s.x, s.z, lit)) { s.healT = 0; return; }
+  s.healT = (s.healT || 0) + dt * 1000;
+  if (s.healT >= CONFIG.healMs) { s.healT = 0; s.hp++; }
+}
+/** What a bot (or me in the preview) wants to do next. */
+function botGoal(b, s, camp, hits) {
+  const night = s.phase === "night", fire = nearestFire(camp, b.x, b.z, false);
+  let crab = null, cd = night ? CONFIG.botFight : 6;
+  for (const c of crabList()) { const d = dist(c, b); if (d < cd) { cd = d; crab = c; } }
+  if (crab) return { kind: "crab", id: crab.id };
+  if (fire && b.w > 0 && fuelLeft(fire) < (night ? 55 : 30)) return { kind: "fire", x: fire.x, z: fire.z };
+  if (night) { b.post += 0.6; return { kind: "spot", x: (fire ? fire.x : 0) + Math.sin(b.post) * 3.4, z: (fire ? fire.z : 0) + Math.cos(b.post) * 3.4 }; }
+  const nearest = (kind) => NODES.filter((n) => n.kind === kind && hits[n.i] > 0).map((n) => ({ n, d: dist(n, b) + Math.random() * 6 })).sort((p, q) => p.d - q.d)[0]?.n;
+  if (b.w < 6) { const n = nearest("tree"); if (n) return { kind: "node", i: n.i }; }
+  if (b.s < 3) { const n = nearest("rock"); if (n) return { kind: "node", i: n.i }; }
+  if (camp.w.length < CONFIG.botWalls && b.w >= 2 && fire) {
+    for (let tries = 0; tries < 8; tries++) {
+      const a = Math.floor(Math.random() * 22) / 22 * TAU, x = r1(fire.x + Math.sin(a) * 8.5), z = r1(fire.z + Math.cos(a) * 8.5);
+      if (canBuild(camp, hits, "wall", x, z)) return { kind: "wall", x, z, r: Math.round(a / (Math.PI / 8)) & 15 };
+    }
+  }
+  if (fire && b.w > 0 && fuelLeft(fire) < CONFIG.maxFuel - 20) return { kind: "fire", x: fire.x, z: fire.z };
+  const a = Math.random() * TAU; return { kind: "spot", x: (fire ? fire.x : 0) + Math.sin(a) * 5, z: (fire ? fire.z : 0) + Math.cos(a) * 5 };
+}
+/** One bot's brain (also drives me in ?attract): walk to the goal, then swing, feed or build. */
+function stepBot(b, dt, s, camp, hits, lit) {
+  if (b.ko) { if (Date.now() >= b.wk) wakeUp(b, camp); return; }
+  healTick(b, dt, lit);
+  b.cd -= dt; b.think -= dt;
+  if (b.think <= 0 || !b.goal) { b.think = 0.5; b.goal = botGoal(b, s, camp, hits); }
+  const g = b.goal, crab = g.kind === "crab" && crabList().find((c) => c.id === g.id), node = g.kind === "node" && NODES[g.i];
+  if ((g.kind === "crab" && !crab) || (node && hits[g.i] <= 0)) { b.goal = null; return; }
+  const tx = crab ? crab.x : node ? node.x : g.x, tz = crab ? crab.z : node ? node.z : g.z;
+  const reach = crab ? CONFIG.reach + CONFIG.spearReach : node ? nodeRadius(node, hits[g.i]) + 0.9 : g.kind === "fire" ? 1.9 : 0.4;
+  const dx = tx - b.x, dz = tz - b.z, d = Math.hypot(dx, dz);
+  if (d > reach) {
+    const step = Math.min(d - reach * 0.8, CONFIG.speed * 0.8 * dt);
+    b.x += dx / d * step; b.z += dz / d * step; b.a = Math.atan2(dx, dz);
+    collide(b, 0.4, camp, hits);
+    return;
+  }
+  if (d > 0.01) b.a = Math.atan2(dx, dz);
+  if (b.cd > 0) return;
+  if (crab) { b.cd = 0.55 + Math.random() * 0.3; b.sw = (b.sw + 1) % 1000; b.t = 3; applyCrabHit(crab.id, 2, b.x, b.z); }
+  else if (node) { b.cd = 0.6; b.sw = (b.sw + 1) % 1000; b.t = node.kind === "tree" ? 1 : 2; if (applyNodeHit(g.i)) { if (node.kind === "tree") b.w += 2; else b.s += 2; } }
+  else if (g.kind === "fire") { if (b.w > 0) { b.w--; b.cd = 0.4; applyFuel(g.x, g.z); } if (!b.w || fuelLeft(nearestFire(camp, g.x, g.z, false)) > CONFIG.maxFuel - 15) b.goal = null; }
+  else if (g.kind === "wall") { if (b.w >= 2 && applyBuild({ k: "wall", x: g.x, z: g.z, r: g.r }, false)) b.w -= 2; b.goal = null; }
+  else b.goal = null;
+}
+
+function hostTick(dt, now) {
+  if (!host.acting) { host.acting = true; host.adopted = false; }
+  if (!host.adopted) {
+    if (S.shared.sky !== undefined) adopt();
+    else if (memory.ready || now - startedAt > 3000) newIsland(memory.saved);
+    else return; // first one here: wait a moment for my saved camp
+  }
+  const t = Date.now();
+  let s = sky() || writeSky({ day: 1, phase: "day", endsAt: t + CONFIG.firstDayMs }); // a broken clock in state: start a fresh day
+  if (s.phase === "day" && t >= s.endsAt) { s = writeSky({ ...s, phase: "night", endsAt: t + CONFIG.nightMs }); host.queue = crabsTonight(s.day); host.spawnIn = 0.5; }
+  else if (s.phase === "night" && t >= s.endsAt) { // dawn: the crabs scuttle back into the sea
+    s = writeSky({ ...s, phase: "day", day: s.day + 1, endsAt: t + CONFIG.dayMs });
+    host.crabs.clear(); host.queue = 0;
+    for (const b of host.bots.values()) Object.assign(b, { hp: CONFIG.hp, ko: 0 });
+  }
+  if (s.phase === "night") {
+    host.spawnIn -= dt;
+    if (host.queue > 0 && host.crabs.size < CONFIG.maxCrabs && host.spawnIn <= 0) { spawnCrab(s.day); host.queue--; host.spawnIn = CONFIG.spawnEvery; }
+  }
+  for (const [i, at] of host.regrow) if (t / 1000 >= at) { host.regrow.delete(i); host.hits[i] = NODES[i].max; host.nodesDirty = true; }
+  fitBots();
+  stepCrabs(dt, s);
+  const lit = litFires(host.camp);
+  for (const b of host.bots.values()) stepBot(b, dt, s, host.camp, host.hits, lit);
+  // Write what changed: positions ~10/s, the rest at most 4/s.
+  if (now - host.lastCrabs > 100) {
+    host.lastCrabs = now;
+    const json = JSON.stringify({ q: host.queue, l: [...host.crabs.values()].map((c) => [c.id, r1(c.x), r1(c.z), r2(c.h), c.hp]) });
+    if (json !== host.crabsJson) { host.crabsJson = json; net.setShared("crabs", json); }
+  }
+  if (now - host.lastBots > 100) {
+    host.lastBots = now;
+    const json = JSON.stringify(botList().map((b) => ({ id: b.id, name: b.name, color: b.color, x: r2(b.x), z: r2(b.z), a: r2(b.a), hp: b.hp, ko: b.ko, wk: b.wk, sw: b.sw, t: b.t, w: b.w, s: b.s })));
+    if (json !== host.botsJson) { host.botsJson = json; net.setShared("bots", json); }
+  }
+  if (now - host.lastBite > 250) { host.lastBite = now; for (const [to, d] of Object.entries(host.bites)) net.send("bite", { to, d }); host.bites = {}; }
+  if (host.nodesDirty && now - host.lastNodes > 250) { host.lastNodes = now; host.nodesDirty = false; net.setShared("nodes", JSON.stringify({ h: "~" + host.hits.map((h) => String.fromCharCode(97 + h)).join(""), g: Object.fromEntries(host.regrow) })); }
+  if (host.campDirty && now - host.lastCamp > 250) { host.lastCamp = now; host.campDirty = false; net.setShared("camp", JSON.stringify(campWire(host.camp))); }
+  if (host.revDirty) { host.revDirty = false; net.setShared("rev", host.rev); }
+}
+
+// ── ME ──────────────────────────────────────────────────────────────────────────────
+const myName = (() => { try { return localStorage.getItem("mpa-name") || ""; } catch { return ""; } })() ||
+  ["Sunny", "Salty", "Brave", "Lucky", "Breezy", "Cozy"][Math.floor(Math.random() * 6)] + " " + ["Castaway", "Sailor", "Islander", "Diver", "Ranger"][Math.floor(Math.random() * 5)];
+const me = { id: "", name: myName, color: COLORS[0], x: 0, z: 4, a: Math.PI, hp: CONFIG.hp, ko: 0, wk: 0, sw: 0, t: 0, w: 0, s: 0, axe: 0, pick: 0, spear: 0,
+  cd: 0, goal: null, think: 0, healT: 0, post: 0, streak: 0, sawDusk: false, koSinceDusk: false, phaseKey: "", lastSend: 0, bagSent: "", hurtAt: 0, g: null, target: null };
+const input = { mx: 0, mz: 0, use: false };
+
+/** Everyone on the island: live people from state, the bots, and me. */
+function team() {
+  const out = [], live = new Set(livePlayers());
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    if (id === net.sessionId || !live.has(id)) continue;
+    const q = parseOnce("p:" + id, p.p, (o) => o && typeof o.x === "number" ? o : null);
+    if (q) out.push({ id, name: p.n || "Survivor", color: p.c || "#ccc", st: Number(p.st) || 0, ...q });
+  }
+  for (const b of botList()) out.push({ ...b, bot: true });
+  out.push(me);
+  return out;
+}
+/** What USE would hit right now: a crab first, else the nearest tree, rock or (with wood) fire, favouring what I face. */
+function pickTarget() {
+  const fx = Math.sin(me.a), fz = Math.cos(me.a), hits = nodeHits(), camp = campNow();
+  let best = null, bs = Infinity;
+  const consider = (o, gap, reach, bonus, t) => {
+    const d = Math.hypot(o.x - me.x, o.z - me.z), edge = d - gap;
+    if (edge > reach) return;
+    const facing = d > 0.01 ? ((o.x - me.x) * fx + (o.z - me.z) * fz) / d : 1, score = edge - facing * 0.8 - bonus;
+    if (score < bs) { bs = score; best = t; }
+  };
+  for (const [id, v] of crabViews) if (!v.dead) consider(v, 0.4, CONFIG.reach + (me.spear ? CONFIG.spearReach : 0), 3, { kind: "crab", id, x: v.x, z: v.z });
+  for (const n of NODES) if (hits[n.i] > 0) consider(n, nodeRadius(n, hits[n.i]), CONFIG.reach - 0.5, 0, { kind: n.kind, i: n.i, x: n.x, z: n.z });
+  if (me.w > 0) for (const f of camp.f) if (fuelLeft(f) < CONFIG.maxFuel - 5) consider(f, 0.85, CONFIG.reach - 0.3, -0.5, { kind: "fire", x: f.x, z: f.z });
+  return best;
+}
+/** One swing at `target` (USE held). My own wood and stone go straight into my bag. */
+function swing(target) {
+  me.cd = CONFIG.swingMs / 1000;
+  if (target.kind === "fire") {
+    me.w--; burst(target.x, 0.9, target.z, "#ffc04a", 8, 3); sfx("fuel");
+    if (hosting()) applyFuel(target.x, target.z); else net.send("fuel", { x: target.x, z: target.z });
+    return;
+  }
+  me.sw = (me.sw + 1) % 1000;
+  me.a = Math.atan2(target.x - me.x, target.z - me.z);
+  if (target.kind === "crab") {
+    me.t = me.spear ? 3 : 0;
+    const v = crabViews.get(target.id); if (v) { v.flash = 0.1; burst(v.x, 0.6, v.z, "#b48cff", 5, 3); }
+    const d = me.spear ? 2 : 1; sfx("hit");
+    if (hosting()) applyCrabHit(target.id, d, me.x, me.z); else net.send("hitc", { i: target.id, d, x: r1(me.x), z: r1(me.z) });
+    return;
+  }
+  const n = NODES[target.i], tree = n.kind === "tree";
+  me.t = tree ? (me.axe ? 1 : 0) : (me.pick ? 2 : 0);
+  if (tree) me.w += me.axe ? 2 : 1; else me.s += me.pick ? 2 : 1;
+  burst(n.x, tree ? 1.6 : 0.8, n.z, tree ? "#a5743f" : "#b9c0c4", 5, 3); nodeViews[n.i].shake = 0.3; sfx(tree ? "chop" : "mine");
+  if (hosting()) applyNodeHit(n.i); else net.send("hit", { i: n.i });
+}
+/** A recipe from the bar: a tool into my bag, or a fence/campfire in front of me. */
+function craft(k) {
+  if (me.ko || ATTRACT) return;
+  const cost = CONFIG.costs[k], item = CRAFTS.find((c) => c.k === k);
+  if (item.tool && me[k]) { toast(`You already have a ${item.name.toLowerCase()}`); return; }
+  if ((cost.w || 0) > me.w || (cost.s || 0) > me.s) { toast(`${item.name}: ${costText(cost)}`); return; }
+  if (!item.tool) {
+    const ahead = k === "fire" ? 2.6 : 1.7, x = r1(me.x + Math.sin(me.a) * ahead), z = r1(me.z + Math.cos(me.a) * ahead);
+    const r = Math.round(me.a / (Math.PI / 8)) & 15;
+    if (!canBuild(campNow(), nodeHits(), k, x, z)) { toast("No room here: try another spot"); return; }
+    if (hosting()) applyBuild({ k, x, z, r }, true); else net.send("build", { k, x, z, r });
+    burst(x, 0.4, z, "#d9c08a", 10, 3); sfx("build");
+  } else { me[k] = 1; sfx("craft"); toast(`Crafted a ${item.name.toLowerCase()}!`); }
+  me.w -= cost.w || 0; me.s -= cost.s || 0;
+}
+/** A crab bit me: I take it off my own hearts. */
+function applyBite(d) {
+  if (me.ko) return;
+  me.hp -= d; me.hurtAt = performance.now(); burst(me.x, 1.2, me.z, "#ff5d6c", 6, 3); sfx("hurt");
+  if (me.hp <= 0) knockOut();
+  publish(true);
+}
+function knockOut() {
+  const lost = me.streak;
+  Object.assign(me, { hp: 0, ko: 1, wk: Date.now() + (ATTRACT ? 3000 : CONFIG.wakeMs), koSinceDusk: true, streak: 0, w: Math.floor(me.w / 2), s: Math.floor(me.s / 2) });
+  net.me.set("st", 0);
+  if (ATTRACT) return;
+  $("koSub").textContent = lost ? `Your streak of ${lost} night${lost === 1 ? "" : "s"} is over. You dropped half your backpack.` : "You dropped half your backpack. Stay in the firelight at night!";
+  $("ko").hidden = false; showBoard();
+}
+function wakeMe() { if (!me.ko) return; wakeUp(me, campNow()); $("ko").hidden = true; publish(true); }
+function myTick(dt) {
+  const camp = campNow(), hits = nodeHits(), lit = litFires(camp);
+  if (me.ko) { if (Date.now() >= me.wk) wakeMe(); }
+  else if (ATTRACT) stepBot(me, dt, sky(), camp, hits, lit); // the preview plays you like a bot
+  else {
+    const len = Math.hypot(input.mx, input.mz), k = len > 1 ? 1 / len : 1;
+    me.x += input.mx * k * CONFIG.speed * dt; me.z += input.mz * k * CONFIG.speed * dt;
+    collide(me, 0.4, camp, hits);
+    healTick(me, dt, lit);
+    me.cd -= dt;
+    me.target = pickTarget();
+    if (input.use && me.cd <= 0 && me.target) swing(me.target);
+  }
+  publish(false);
+}
+function publish(force) {
+  const now = performance.now();
+  if (!force && now - me.lastSend < 100) return; // ~10/s
+  me.lastSend = now;
+  net.me.set("p", JSON.stringify({ x: r2(me.x), z: r2(me.z), a: r2(me.a), hp: me.hp, ko: me.ko, sw: me.sw, t: me.t }));
+  const bag = JSON.stringify({ w: me.w, s: me.s, axe: me.axe, pick: me.pick, spear: me.spear });
+  if (bag !== me.bagSent) { me.bagSent = bag; net.me.set("bag", bag); }
+}
+/** The clock moved on: dusk and dawn for me (the night streak lives here). */
+function phaseTick(s) {
+  const key = s.day + ":" + s.phase;
+  if (key === me.phaseKey) return;
+  const first = !me.phaseKey; me.phaseKey = key;
+  if (first) return;
+  if (s.phase === "night") { me.sawDusk = true; me.koSinceDusk = !!me.ko; toast("Night falls. The crabs are coming!"); sfx("night"); return; }
+  if (me.sawDusk && !me.koSinceDusk && !me.ko) {
+    me.streak++; net.me.set("st", me.streak);
+    toast(`Dawn! You lasted the night. Streak: ${me.streak}`);
+    if (board) board.submit(me.streak).catch(() => {});
+  } else toast(`Day ${s.day}. Chop, mine and get ready`);
+  me.sawDusk = false; if (!me.ko) me.hp = CONFIG.hp;
+  sfx("dawn");
+}
+
+// Everyone else's survivors, eased toward where they last said they were.
+const views = new Map(); // id -> { g, color, x, z, a }
+function syncSurvivors(dt, now) {
+  const seen = new Set(), k = 1 - Math.pow(0.0008, dt);
+  for (const s of team()) {
+    if (s === me) continue;
+    seen.add(s.id);
+    let v = views.get(s.id);
+    if (v && v.color !== s.color) { scene.remove(v.g); v = null; } // a new color: rebuild the model
+    if (!v) { v = { g: makeSurvivor(s.color, ATTRACT ? "" : s.name), color: s.color, x: s.x, z: s.z, a: s.a, hp: s.hp }; views.set(s.id, v); }
+    const snap = s.bot && hosting();
+    v.x += (s.x - v.x) * (snap ? 1 : k); v.z += (s.z - v.z) * (snap ? 1 : k); v.a += Math.atan2(Math.sin(s.a - v.a), Math.cos(s.a - v.a)) * (snap ? 1 : k);
+    if (s.hp < v.hp) burst(v.x, 1.2, v.z, "#ff5d6c", 5, 3);
+    v.hp = s.hp;
+    poseSurvivor(v.g, { ...s, x: v.x, z: v.z, a: v.a }, now);
+  }
+  for (const [id, v] of views) if (!seen.has(id)) { scene.remove(v.g); views.delete(id); }
+  if (me.g && me.g.userData.color !== me.color) { scene.remove(me.g); me.g = null; }
+  if (!me.g) { me.g = makeSurvivor(me.color, ""); me.g.userData.color = me.color; }
+  poseSurvivor(me.g, me, now);
+}
+/** Two people in one color: the one with the higher sessionId picks a color nobody (and no bot) uses. */
+function fixColor() {
+  const others = Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId);
+  if (!others.some(([id, p]) => p.c === me.color && id < net.sessionId)) return;
+  const taken = new Set([...others.map(([, p]) => p.c), ...botList().map((b) => b.color)]), free = COLORS.find((c) => !taken.has(c));
+  if (free) { me.color = free; net.me.set("c", free); }
+}
+// The ring under whatever USE would hit.
+const aimRing = mesh(new THREE.RingGeometry(0.75, 0.95, 32), new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.7, depthWrite: false }), 0, 0.07, 0);
+aimRing.rotation.x = -Math.PI / 2; scene.add(aimRing);
+
+// ── HUD ─────────────────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const costText = (c) => [c.w ? `${c.w} wood` : "", c.s ? `${c.s} stone` : ""].filter(Boolean).join(" + ");
+const touchUI = matchMedia("(pointer: coarse)").matches && !ATTRACT;
+document.body.classList.toggle("touch", touchUI);
+document.body.classList.toggle("attract", ATTRACT);
+let board = null, netDown = false;
+const startedAt = performance.now();
+CRAFTS.forEach((c, i) => {
+  const b = document.createElement("button"); b.dataset.k = c.k;
+  b.innerHTML = `${c.name}<small>${[CONFIG.costs[c.k].w ? `${CONFIG.costs[c.k].w}🪵` : "", CONFIG.costs[c.k].s ? `${CONFIG.costs[c.k].s}🪨` : ""].join(" ")}</small>`;
+  b.title = `${i + 1}: ${c.name} (${costText(CONFIG.costs[c.k])})`;
+  b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); craft(c.k); });
+  $("craft").append(b);
+});
+function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 3200); }
+const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+function hud(s) {
+  const now = performance.now();
+  $("hurt").style.opacity = now - me.hurtAt < 250 ? 0.8 : me.ko ? 0.4 : 0;
+  if (ATTRACT) { $("net").textContent = ""; return; }
+  const n = livePlayers().length;
+  $("net").textContent = netDown ? "Reconnecting…" : net.offline ? "Offline: playing with bots" : `Online · ${n} player${n === 1 ? "" : "s"}${isHost() ? " · you run the island" : ""}`;
+  if (!s) { $("clock").textContent = "Washing ashore…"; return; }
+  const left = s.endsAt - Date.now(), camp = campNow(), fire = nearestFire(camp, me.x, me.z, false), low = fire && fuelLeft(fire) < 20;
+  $("clock").innerHTML = s.phase === "day" ? `☀️ Day ${s.day}<small>Night falls in ${mmss(left)}</small>` : `🌙 Night ${s.day}<small>${low ? "The fire is going out! Feed it wood" : `Dawn in ${mmss(left)}`}</small>`;
+  $("hearts").innerHTML = "<b>♥</b>".repeat(Math.max(0, me.hp)) + "<i>♥</i>".repeat(Math.max(0, CONFIG.hp - me.hp));
+  $("bag").innerHTML = `🪵 ${me.w} &nbsp;🪨 ${me.s}<small>${[me.axe && "Axe", me.pick && "Pickaxe", me.spear && "Spear"].filter(Boolean).join(" · ") || "Bare hands"}${me.streak ? ` · ${me.streak} night streak` : ""}</small>`;
+  for (const b of $("craft").children) {
+    const k = b.dataset.k, c = CONFIG.costs[k], have = CRAFTS.find((x) => x.k === k).tool && me[k];
+    b.classList.toggle("have", !!have); b.classList.toggle("can", !have && (c.w || 0) <= me.w && (c.s || 0) <= me.s);
+  }
+  $("team").innerHTML = team().map((p) => `<div class="${p === me ? "mine" : ""} ${p.ko ? "ko" : ""}">${esc(p === me ? "You" : p.name)} ${p.ko ? "zzz" : "♥".repeat(Math.max(0, p.hp))}<i style="background:${esc(p.color)}"></i></div>`).join("");
+  const hint = $("hint"), early = now - startedAt < 11000;
+  hint.textContent = touchUI ? "Left thumb walks · hold USE to chop, mine, fight and feed the fire · tap a recipe to craft" : "WASD to walk · hold click or Space to chop, mine, fight and feed the fire · 1–5 to craft";
+  hint.classList.toggle("on", early);
+  if (me.ko) $("koNext").textContent = `You wake up by the fire in ${Math.max(0, Math.ceil((me.wk - Date.now()) / 1000))}s`;
+}
+function showBoard() {
+  const list = $("board");
+  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
+  list.innerHTML = "<li>Loading…</li>";
+  board.top(10).then(({ entries }) => {
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score} night${e.score === 1 ? "" : "s"}</span></li>`).join("") : "<li>No streaks yet. Last a night to be first.</li>";
+  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+}
+$("wake").onclick = wakeMe;
+
+// ── INPUT ───────────────────────────────────────────────────────────────────────────
+const keys = new Set(), mouse = { x: 0, y: 0, seen: false, down: false };
+const MOVE = { w: [0, -1], arrowup: [0, -1], s: [0, 1], arrowdown: [0, 1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (MOVE[k] || k === " ") e.preventDefault();
+  keys.add(k);
+  const n = Number(e.key); if (n >= 1 && n <= CRAFTS.length && !e.repeat) craft(CRAFTS[n - 1].k);
+});
+addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+addEventListener("blur", () => { keys.clear(); mouse.down = false; });
+for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => { try { audio ||= new AudioContext(); } catch {} }, { once: true });
+const cv = renderer.domElement;
+// Touch: the left half of the screen is a thumb stick, the right half (and the USE button) swings.
+const touch = { stick: null, use: null };
+cv.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  if (e.pointerType === "mouse") { if (e.button === 0) mouse.down = true; return; }
+  if (e.clientX < innerWidth / 2 && !touch.stick) {
+    touch.stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
+    Object.assign($("stick").style, { left: e.clientX + "px", top: e.clientY + "px" }); $("stick").hidden = false;
+  } else if (!touch.use) touch.use = e.pointerId;
+});
+cv.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "mouse") { mouse.x = e.clientX; mouse.y = e.clientY; mouse.seen = true; return; }
+  const s = touch.stick;
+  if (s && s.id === e.pointerId) {
+    let dx = e.clientX - s.x0, dy = e.clientY - s.y0; const d = Math.hypot(dx, dy);
+    if (d > 50) { dx *= 50 / d; dy *= 50 / d; }
+    s.dx = dx; s.dy = dy; $("stick").firstChild.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+});
+for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, (e) => {
+  if (e.pointerType === "mouse") { if (e.button === 0) mouse.down = false; return; }
+  if (touch.stick && touch.stick.id === e.pointerId) { touch.stick = null; $("stick").hidden = true; }
+  if (touch.use === e.pointerId) touch.use = null;
+});
+const useBtn = $("use");
+useBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); touch.use = e.pointerId; });
+document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.1), aimAt = new THREE.Vector3();
+/** Turn keys, mouse and touch into this frame's move, facing and USE. Facing comes through the camera that drew the frame. */
+function readInput() {
+  input.mx = input.mz = 0;
+  for (const k of keys) if (MOVE[k]) { input.mx += MOVE[k][0]; input.mz += MOVE[k][1]; }
+  if (touch.stick) { input.mx = touch.stick.dx / 50; input.mz = touch.stick.dy / 50; }
+  if (mouse.seen && !touch.stick) {
+    ndc.set(mouse.x / innerWidth * 2 - 1, -(mouse.y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    if (ray.ray.intersectPlane(aimPlane, aimAt) && Math.hypot(aimAt.x - me.x, aimAt.z - me.z) > 0.3) me.a = Math.atan2(aimAt.x - me.x, aimAt.z - me.z);
+  } else if (Math.hypot(input.mx, input.mz) > 0.2) me.a = Math.atan2(input.mx, input.mz);
+  input.use = mouse.down || keys.has(" ") || keys.has("e") || touch.use !== null;
+  if (me.ko) input.mx = input.mz = 0;
+}
+
+// ── MAIN LOOP ───────────────────────────────────────────────────────────────────────
+let last = performance.now(), lastHb = 0, lastHud = 0;
+const focus = new THREE.Vector3(), camOff = new THREE.Vector3();
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
+  const t = now / 1000;
+  if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
+  if (isHost()) hostTick(dt, now); else host.acting = host.adopted = false;
+  const s = sky();
+  if (!ATTRACT) readInput();
+  if (s) { phaseTick(s); myTick(dt); }
+  const camp = campNow(), light = daylight(s), night = 1 - light;
+  syncNodes(dt); syncWalls(camp); syncFires(camp, t, night);
+  syncCrabs(dt); drawCrabs(dt, t); syncSurvivors(dt, now); stepBits(dt);
+  applySky(light);
+  waveTex.offset.set(t * 0.004, t * 0.002);
+  aimRing.visible = !ATTRACT && !!me.target && !me.ko;
+  if (aimRing.visible) { aimRing.position.x = me.target.x; aimRing.position.z = me.target.z; aimRing.material.color.set(me.target.kind === "crab" ? "#ff6b6b" : me.target.kind === "fire" ? "#ffc04a" : "#ffffff"); }
+  if (ATTRACT) { // the preview: a slow orbit around the camp
+    const a = t * 0.1 + 0.2;
+    focus.set(0, 0, 0); camera.position.set(Math.sin(a) * 10.5, 8, Math.cos(a) * 10.5); camera.lookAt(0, 0.3, 0);
+  } else { // a 3/4 camera that follows me (higher and wider on a phone held upright)
+    const tall = innerHeight > innerWidth ? 1.45 : 1;
+    camOff.set(0, 16, 9).multiplyScalar(tall);
+    focus.lerp(P3.set(me.x, 0, me.z), 1 - Math.pow(0.002, dt));
+    camera.position.copy(focus).add(camOff);
+    if (now - me.hurtAt < 200) camera.position.x += (Math.random() - 0.5) * 0.4;
+    camera.lookAt(focus);
+  }
+  sun.position.set(focus.x + 18, 34, focus.z + 12); sun.target.position.copy(focus);
+  renderer.render(scene, camera);
+  if (now - lastHud > 120) { lastHud = now; hud(s); }
+  requestAnimationFrame(frame);
+}
+
+(async function start() {
+  net = await connect();
+  net.onState((st) => { S = st; });
+  net.on("hit", (m, from) => { if (hosting() && m && Number.isInteger(m.i)) applyNodeHit(m.i); });
+  net.on("hitc", (m) => { if (hosting() && m && typeof m.i === "number") applyCrabHit(m.i, Number(m.d) || 1, Number(m.x) || 0, Number(m.z) || 0); });
+  net.on("fuel", (m) => { if (hosting() && m) applyFuel(Number(m.x), Number(m.z)); });
+  net.on("build", (m) => { if (hosting() && m) applyBuild({ k: m.k, x: Number(m.x), z: Number(m.z), r: Number(m.r) }, true); });
+  net.on("bite", (m) => { if (m && m.to === net.sessionId) applyBite(clamp(Number(m.d) || 0, 0, CONFIG.hp)); });
+  net.on("memory", (m) => { if (m && typeof m.text === "string") toast(m.text.slice(0, 80)); });
+  net.onDisconnect(() => { netDown = true; $("net").textContent = "Reconnecting…"; });
+  net.onReconnect(() => { netDown = false; });
+  if (!net.offline && typeof MP !== "undefined") { player = MP.auth({ key: MP_CONNECT.key, apiUrl: MP_CONNECT.apiUrl }); board = player.leaderboard(CONFIG.board); }
+  const taken = new Set([...Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId).map(([, p]) => p.c), ...readBots().map((b) => b.color)]);
+  me.id = net.sessionId; me.color = COLORS.find((c) => !taken.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
+  net.me.set({ n: myName, c: me.color, hb: Date.now(), st: 0 });
+  if (ATTRACT) {
+    Object.assign(CONFIG, { seats: 3, firstDayMs: 1600, nightMs: 60000, duskMs: 1500, spawnEvery: 0.2, crabs: 30, maxCrabs: 22, spawnRadius: 12, crabSpeed: 2.6, burnMs: 1100, botFight: 4.5 });
+    Object.assign(me, { w: 6, s: 4, axe: 1, pick: 1, spear: 1, x: 2, z: 2.5 });
+    memory.ready = true;
+  } else loadMemory();
+  setInterval(memoryTick, 1000);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
