@@ -228,7 +228,8 @@ function livePlayers() {
   }
   return out.sort();
 }
-const isHost = () => livePlayers()[0] === net.sessionId;
+let wakeHold = 0, lastFrameAt = 0; // a tab whose frames stopped (frozen, or in the background) doesn't act as host, nor for 700ms after it wakes (see frame())
+const isHost = () => livePlayers()[0] === net.sessionId && performance.now() >= wakeHold && !(lastFrameAt && performance.now() - lastFrameAt > 1000);
 
 // ── WORLD MEMORY ────────────────────────────────────────────────────────────────────
 // A relay room forgets everything when its last player leaves, so the PLAYERS remember the camp:
@@ -1288,6 +1289,8 @@ let last = performance.now(), lastHb = 0, lastHud = 0;
 const focus = new THREE.Vector3(), camOff = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
+  const realNow = performance.now(); // timed on the real clock: after a long freeze the rAF time can be from before the wake
+  if (lastFrameAt && realNow - lastFrameAt > 1000) { wakeHold = realNow + 700; host.acting = host.adopted = false; host.lastSky = null; } lastFrameAt = realNow; // woke from a freeze or a background tab: another player may have run the island meanwhile, so let their state arrive, then adopt it like a new host
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   const t = now / 1000;
   if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
