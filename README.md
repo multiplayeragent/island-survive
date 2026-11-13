@@ -32,7 +32,7 @@ Without a key it still runs, offline with bots, and remembers your camp in this 
 - **World memory:** The camp is remembered by the players who built it. Every player saves a copy every 10 seconds and when they leave; whoever comes back first brings back its fires, fences and day count, and a copy with more building in it replaces a newer, emptier one.
 - **Host-run rules:** The host's browser runs the day and night, every crab and every fallen tree. If it leaves, the next player takes over.
 - **Leaderboard:** The most nights in a row each player lasted without being knocked out.
-- **Bots:** Bot islanders chop, mine, build fences and fight beside you until enough people join.
+- **Bots:** Bot islanders chop, mine, craft their own tools, build fences and campfires, and fight beside you until enough people join.
 - **Live sync:** Every islander, swing, crab and campfire shows up for everyone at once.
 - `?attract` runs it offline with bots only. The preview video is recorded from it.
 

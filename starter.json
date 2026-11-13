@@ -11,7 +11,7 @@
     ["World memory", "The camp is remembered by the players who built it: whoever comes back first brings back its fires, fences and day count."],
     ["Host-run rules", "The host's browser runs the day and night, every crab and every fallen tree; if it leaves, the next player takes over."],
     ["Leaderboard", "The most nights in a row each player lasted without being knocked out."],
-    ["Bots", "Bot islanders chop, mine, build fences and fight beside you until enough people join."],
+    ["Bots", "Bot islanders chop, mine, craft their own tools, build fences and campfires, and fight beside you until enough people join."],
     ["Live sync", "Every islander, swing, crab and campfire shows up for everyone at once."]
   ],
   "ideas": [
