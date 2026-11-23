@@ -106,7 +106,9 @@
  *   - Everyone else sends intents: "hit" {i} (a swing at tree/rock i: you add the wood or
  *     stone to your own bag, the host takes a swing off the node), "hitc" {i, d, x, z} (a
  *     swing at crab i), "fuel" {x, z} (a log into the fire there) and "build" {k, x, z, r}
- *     (a fence or campfire). The host checks and writes the result; its own swings apply directly.
+ *     (a fence or campfire). The host checks them (checkSender: the sender is up, close enough by
+ *     its own `p`, not swinging faster than you can; a crab hit does 2 only if its `bag` has a spear)
+ *     and writes the result; its own swings apply directly. Bites count only when the host sent them.
  *   - Crabs bite by event: the host sends "bite" {to, d} and only the bitten player takes the
  *     hearts off. The host bites bots directly.
  *   - The camp and the day count outlive the room through WORLD MEMORY (see that section).
@@ -130,6 +132,7 @@ const CONFIG = {
   speed: 6,              // walking speed, units/s
   reach: 1.7,            // how far a swing reaches (the spear adds `spearReach`)
   spearReach: 0.8,
+  netSlack: 2.5,         // the host accepts someone's swing, log or build this much farther than the reach (positions arrive late)
   swingMs: 420,          // ms between swings while Use is held
   hp: 5,                 // hearts
   healMs: 4000,          // ms per heart while you stand in firelight
@@ -753,7 +756,7 @@ function applySky(f) {
 
 // ── ISLAND (HOST) ───────────────────────────────────────────────────────────────────
 const host = { acting: false, adopted: false, lastSky: null, hits: [], regrow: new Map(), camp: { f: [], w: [] }, rev: 0,
-  crabs: new Map(), queue: 0, nextId: 1, spawnIn: 0, bots: new Map(), bites: {},
+  crabs: new Map(), queue: 0, nextId: 1, spawnIn: 0, bots: new Map(), bites: {}, swungAt: new Map(),
   nodesDirty: false, campDirty: false, revDirty: false, lastNodes: 0, lastCamp: 0, lastCrabs: 0, lastBots: 0, lastBite: 0, crabsJson: "", botsJson: "" };
 /** The clock as state has it, or the host's own newer write that hasn't come back yet. `v` only goes up. */
 function sky() {
@@ -902,8 +905,16 @@ function bite(to, d) {
   else host.bites[to] = (host.bites[to] || 0) + d; // sent 4 times a second, one event per bitten player
 }
 // The intents. Each checks what it is told; the host's own swings call these directly.
+/** Player `id` as the host sees it (its own `p` and `bag`) if it is up and within `reach` of (x, z), and,
+ *  for a swing, not swinging faster than anyone can. Otherwise null, and its intent is ignored. */
+function checkSender(id, x, z, reach, swing) {
+  const p = S.entities.players?.[id], q = p && parseOnce("p:" + id, p.p, (o) => o && typeof o.x === "number" ? o : null);
+  if (!q || q.ko || !(Math.hypot(q.x - x, q.z - z) <= reach + CONFIG.netSlack)) return null;
+  if (swing) { const t = performance.now(); if (t - (host.swungAt.get(id) || 0) < CONFIG.swingMs * 0.5) return null; host.swungAt.set(id, t); }
+  return { x: q.x, z: q.z, spear: !!(parse(p.bag, null) || {}).spear };
+}
 function applyNodeHit(i) {
-  if (!(i >= 0 && i < NODES.length) || host.hits[i] <= 0) return false;
+  if (!Number.isInteger(i) || !(i >= 0 && i < NODES.length) || host.hits[i] <= 0) return false;
   host.hits[i]--; if (host.hits[i] === 0) host.regrow.set(i, Math.round(nowSec() + CONFIG.regrowMs / 1000));
   host.nodesDirty = true; return true;
 }
@@ -1359,12 +1370,19 @@ function frame(now) {
 (async function start() {
   net = await connect();
   net.onState((st) => { S = st; });
-  net.on("hit", (m, from) => { if (hosting() && m && Number.isInteger(m.i)) applyNodeHit(m.i); });
-  net.on("hitc", (m) => { if (hosting() && m && typeof m.i === "number") applyCrabHit(m.i, Number(m.d) || 1, Number(m.x) || 0, Number(m.z) || 0); });
-  net.on("fuel", (m) => { if (hosting() && m) applyFuel(Number(m.x), Number(m.z)); });
-  net.on("build", (m) => { if (hosting() && m) applyBuild({ k: m.k, x: Number(m.x), z: Number(m.z), r: Number(m.r) }, true); });
-  net.on("bite", (m) => { if (m && m.to === net.sessionId) applyBite(clamp(Number(m.d) || 0, 0, CONFIG.hp)); });
-  net.on("memory", (m) => { if (m && typeof m.text === "string") toast(m.text.slice(0, 80)); });
+  net.on("hit", (m, from) => {
+    const n = hosting() && m && Number.isInteger(m.i) && NODES[m.i];
+    if (n && checkSender(from, n.x, n.z, nodeRadius(n, host.hits[n.i]) + CONFIG.reach, true)) applyNodeHit(m.i);
+  });
+  net.on("hitc", (m, from) => { // the damage comes from the sender's own backpack: 2 with a spear, else 1
+    const c = hosting() && m && host.crabs.get(m.i), p = c && checkSender(from, c.x, c.z, CONFIG.reach + CONFIG.spearReach + 0.4, true);
+    if (p) applyCrabHit(c.id, p.spear ? 2 : 1, p.x, p.z);
+  });
+  net.on("fuel", (m, from) => { if (hosting() && m && checkSender(from, Number(m.x), Number(m.z), CONFIG.reach + 1, false)) applyFuel(Number(m.x), Number(m.z)); });
+  net.on("build", (m, from) => { if (hosting() && m && checkSender(from, Number(m.x), Number(m.z), 2.6, false)) applyBuild({ k: m.k, x: Number(m.x), z: Number(m.z), r: Number(m.r) }, true); });
+  // Bites and the world-memory message only count when the host sent them.
+  net.on("bite", (m, from) => { if (m && m.to === net.sessionId && from === livePlayers()[0]) applyBite(clamp(Number(m.d) || 0, 0, CONFIG.hp)); });
+  net.on("memory", (m, from) => { if (m && typeof m.text === "string" && from === livePlayers()[0]) toast(m.text.slice(0, 80)); });
   net.onDisconnect(() => { netDown = true; $("net").textContent = "Reconnecting…"; });
   net.onReconnect(() => { netDown = false; });
   if (!net.offline && typeof MP !== "undefined") { player = MP.auth({ key: MP_CONNECT.key, apiUrl: MP_CONNECT.apiUrl }); board = player.leaderboard(CONFIG.board); }
